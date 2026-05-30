@@ -4,28 +4,48 @@ Monorepo for the **Tactica** AI chess coach app.
 
 ## Stack
 
-| Layer    | Tech                                                                   |
-| -------- | ---------------------------------------------------------------------- |
-| Monorepo | pnpm workspaces + Turborepo                                            |
-| Language | TypeScript                                                             |
-| Database | Postgres                                                               |
-| Backend  | Fastify + ts-rest + Drizzle                                            |
-| Auth     | SuperTokens                                                            |
-| Frontend | ReactNative + Expo + Expo Router                                       |
-| Tests    | Vitest (unit), Playwright (web E2E)                                    |
+| Layer    | Tech                                |
+| -------- | ----------------------------------- |
+| Monorepo | pnpm workspaces + Turborepo         |
+| Language | TypeScript                          |
+| Database | Postgres                            |
+| Backend  | Fastify + ts-rest + Drizzle         |
+| Auth     | SuperTokens                         |
+| Frontend | ReactNative + Expo + Expo Router    |
+| Tests    | Vitest (unit), Playwright (web E2E) |
 
 ## Local dev
 
 ### Initial setup
 
-```bash
-# Install npm deps
-nvm use
-pnpm install
+- [nvm](https://github.com/nvm-sh/nvm)
+  - For managing multiple node versions
+  - Suggest setting up `nvm` to [auto-switch to the right node version on cd](https://github.com/nvm-sh/nvm#deeper-shell-integration)
+- [pnpm](https://pnpm.io/installation)
 
-# Install default browsers for E2E tests
-pnpm --filter @tactica/e2e-tests exec playwright install
-```
+  ```bash
+  npm install --global corepack@latest
+  corepack enable pnpm
+  ```
+
+  - If you run `which pnpm`, it should show something like `~/.nvm/versions/node/<node_version>/bin/pnpm`
+
+- Install pnpm deps
+  ```bash
+  nvm use
+  pnpm install
+  ```
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+  - For your local platform, e.g. [Docker for Mac](https://docs.docker.com/desktop/install/mac-install/) for a Mac
+- [XCode](https://en.wikipedia.org/wiki/Xcode)
+  - Ensure XCode is installed, with command line tools (necessary for running iOS Simulator)
+  - Ensure you can open a simulated iPhone with Simulator, and it starts up properly
+- [cmake](https://cmake.org/)
+  - On a Mac, `brew install cmake`
+- Install default browsers for E2E tests
+  ```bash
+  pnpm --filter @tactica/e2e-tests exec playwright install
+  ```
 
 ### Local dev environment
 
@@ -42,7 +62,7 @@ pnpm --filter @tactica/supertokens serve
 pnpm --filter @tactica/tactica-core serve
 
 # Terminal 4: the Expo app (web, iOS, Android — pick one)
-pnpm --filter @tactica/tactica-app web      # → http://localhost:8081
+pnpm --filter @tactica/tactica-app web
 pnpm --filter @tactica/tactica-app ios
 pnpm --filter @tactica/tactica-app android
 ```
@@ -50,6 +70,7 @@ pnpm --filter @tactica/tactica-app android
 ### Common workflows
 
 ```bash
+pnpm install         # Install all dependencies managed via pnpm
 pnpm typecheck       # TypeScript across everything
 pnpm lint            # Prettier check + ESLint
 pnpm format          # Prettier write + ESLint --fix
