@@ -19,9 +19,12 @@ Monorepo for the **Tactica** AI chess coach app.
 ### Initial setup
 
 ```bash
-nvm use # Node 22
+# Install npm deps
+nvm use
 pnpm install
-pnpm exec playwright install chromium # for E2E
+
+# Install default browsers for E2E tests
+pnpm --filter @tactica/e2e-tests exec playwright install
 ```
 
 ### Local dev environment
