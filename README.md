@@ -1,51 +1,30 @@
 # Tactica
 
-A chess learning app monorepo. This branch contains the scaffolding only — auth + a "todo" list to prove the stack works end-to-end.
+Monorepo for the **Tactica** AI chess coach app.
 
 ## Stack
 
-| Layer    | Choice                                                                 |
+| Layer    | Tech                                                                   |
 | -------- | ---------------------------------------------------------------------- |
 | Monorepo | pnpm workspaces + Turborepo                                            |
-| Backend  | Fastify + ts-rest + Drizzle + Postgres                                 |
-| Auth     | SuperTokens (EmailPassword + Session), self-hosted core via Docker     |
-| Frontend | Expo + Expo Router (iOS / Android / web from one codebase)             |
-| Tests    | Vitest (unit + backend integration), Playwright (E2E against Expo Web) |
-| Language | TypeScript (Node 22)                                                   |
-
-## Layout
-
-```
-backends/
-├── tactica-core/       # The Fastify service (todos for now)
-└── supertokens/        # Docker config for SuperTokens core
-frontends/
-└── tactica-app/        # Expo app (iOS + Android + Web)
-packages/
-├── tactica-core-contract/  # ts-rest contracts for the tactica-core service
-├── tactica-core-client/    # axios-based ts-rest client for tactica-core
-├── api-client-utils/       # ContractBuilder, axios builder, response helpers
-├── drizzle-utils/          # standardFields, db client helpers
-├── errors/                 # BaseError + ServerError hierarchy
-├── eslint-config/          # Shared ESLint flat config
-├── fastify-utils/          # FastifyAppBuilder, ts-rest plugin, supertokens plugin
-├── logging/                # Winston logger
-└── tsconfig/               # Shared base.json + library.json + node-app.json
-e2e-tests/                  # Playwright E2E tests (top-level, separate from packages)
-tools/scripts/              # Bash scripts for Postgres lifecycle (copied/adapted from parker)
-```
+| Language | TypeScript                                                             |
+| Database | Postgres                                                               |
+| Backend  | Fastify + ts-rest + Drizzle                                            |
+| Auth     | SuperTokens                                                            |
+| Frontend | ReactNative + Expo + Expo Router                                       |
+| Tests    | Vitest (unit), Playwright (web E2E)                                    |
 
 ## Local dev
 
-### One-time setup
+### Initial setup
 
 ```bash
-nvm use                          # Node 22
+nvm use # Node 22
 pnpm install
-pnpm exec playwright install chromium   # for E2E
+pnpm exec playwright install chromium # for E2E
 ```
 
-### Day-to-day
+### Local dev environment
 
 In separate terminals:
 
@@ -65,7 +44,7 @@ pnpm --filter @tactica/tactica-app ios
 pnpm --filter @tactica/tactica-app android
 ```
 
-### Workspace-wide commands
+### Common workflows
 
 ```bash
 pnpm typecheck       # TypeScript across everything
@@ -78,27 +57,9 @@ pnpm db:migrate-up   # Ensure dev Postgres is up, run migrations
 pnpm db:clean        # Tear down Postgres containers + volumes
 ```
 
-## E2E verification loop
+## Running E2E tests
 
-`pnpm test:e2e` does NOT auto-start any services. Bring them up first (see "Day-to-day" above), then run the test. If a service isn't reachable the test fails fast with a clear error.
-
-The full E2E checklist:
-
-```bash
-nvm use
-pnpm install
-pnpm exec playwright install chromium      # one-time
-
-pnpm typecheck && pnpm lint && pnpm build && pnpm test
-
-# Bring up the stack in separate terminals (or background each):
-pnpm db:migrate-up
-pnpm --filter @tactica/supertokens serve &
-pnpm --filter @tactica/tactica-core serve &
-pnpm --filter @tactica/tactica-app web &
-
-pnpm test:e2e                              # signup → todo CRUD → logout/login round trip
-```
+For web E2E tests, see [the E2E README](./e2e-tests/README.md).
 
 ## The no-compile workspace deps story
 
