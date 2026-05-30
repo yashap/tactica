@@ -1,0 +1,5 @@
+packages:
+  - 'backends/*'
+  - 'frontends/*'
+  - 'packages/*'
+  - 'e2e-tests'

@@ -1,0 +1,49 @@
+{
+  "name": "@tactica/tactica-core",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "clean": "rm -rf dist .turbo",
+    "db:migrate-up": "pnpm db:up && tsx --conditions=development ./src/db/migrate.ts",
+    "db:migrate-up:test": "pnpm db:up:test && DATABASE_URL=\"postgres://tactica_core:tactica_core_password@localhost:5441/tactica_core?sslmode=disable\" tsx --conditions=development ./src/db/migrate.ts",
+    "db:up": "../../tools/scripts/ensure_postgres_db.sh -d tactica_core -c tactica_postgres_dev && ../../tools/scripts/ensure_postgres_user.sh -u tactica_core -w tactica_core_password -d tactica_core -c tactica_postgres_dev",
+    "db:up:test": "../../tools/scripts/ensure_postgres_db.sh -d tactica_core -c tactica_postgres_test && ../../tools/scripts/ensure_postgres_user.sh -u tactica_core -w tactica_core_password -d tactica_core -c tactica_postgres_test",
+    "db:generate": "pnpm --filter @tactica/drizzle-utils build && drizzle-kit generate",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "lint": "eslint \"src/**/*.ts\"",
+    "serve": "tsx watch --conditions=development src/main.ts",
+    "start": "node dist/main.js",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@tactica/drizzle-utils": "workspace:*",
+    "@tactica/errors": "workspace:*",
+    "@tactica/fastify-utils": "workspace:*",
+    "@tactica/logging": "workspace:*",
+    "@tactica/tactica-core-contract": "workspace:*",
+    "@ts-rest/core": "^3.52.1",
+    "@ts-rest/fastify": "^3.52.1",
+    "drizzle-orm": "^0.44.5",
+    "fastify": "^4.28.1",
+    "pg": "^8.16.3",
+    "supertokens-node": "^23.0.1",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@tactica/eslint-config": "workspace:*",
+    "@tactica/tsconfig": "workspace:*",
+    "@types/node": "^22.10.0",
+    "@types/pg": "^8.11.10",
+    "@types/supertest": "^6.0.2",
+    "drizzle-kit": "^0.31.4",
+    "eslint": "^9.34.0",
+    "supertest": "^7.0.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.9.2",
+    "vitest": "^2.1.8"
+  }
+}

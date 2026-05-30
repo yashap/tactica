@@ -1,0 +1,48 @@
+{
+  "$schema": "https://turborepo.org/schema.json",
+  "globalEnv": [
+    "NODE_ENV",
+    "LOG_LEVEL",
+    "JSON_LOGS",
+    "DATABASE_URL",
+    "PORT",
+    "HOST_NAME",
+    "SUPERTOKENS_CORE_URL",
+    "SUPERTOKENS_API_KEY",
+    "TACTICA_WEB_URL",
+    "TACTICA_CORE_URL"
+  ],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"]
+    },
+    "clean": {
+      "cache": false
+    },
+    "db:migrate-up": {
+      "cache": false
+    },
+    "db:migrate-up:test": {
+      "cache": false
+    },
+    "format": {
+      "outputs": []
+    },
+    "lint": {
+      "outputs": [],
+      "dependsOn": []
+    },
+    "serve": {
+      "cache": false,
+      "persistent": true
+    },
+    "test": {
+      "outputs": []
+    },
+    "typecheck": {
+      "outputs": [],
+      "dependsOn": []
+    }
+  }
+}

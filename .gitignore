@@ -1,8 +1,12 @@
-# Nestjs specific
-/dist
-/node_modules
-/build
-/tmp
+# Build outputs
+dist/
+build/
+.turbo/
+tsconfig.tsbuildinfo
+*.tsbuildinfo
+
+# Dependencies
+node_modules/
 
 # Logs
 logs
@@ -11,14 +15,34 @@ npm-debug.log*
 pnpm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-lerna-debug.log*
 
 # dotenv environment variable files
 .env
+.env.local
 .env.development
 .env.test
 .env.production
 
-# temp directory
+# Temp dirs
 .temp
 .tmp
+tmp/
+
+# Expo
+.expo/
+.expo-shared/
+web-build/
+
+# Playwright
+test-results/
+playwright-report/
+playwright/.cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Coverage
+coverage/

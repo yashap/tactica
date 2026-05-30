@@ -1,0 +1,12 @@
+node_modules
+dist
+build
+.turbo
+.expo
+web-build
+coverage
+playwright-report
+test-results
+pnpm-lock.yaml
+*.tsbuildinfo
+**/drizzle/*.sql
