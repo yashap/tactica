@@ -4,15 +4,15 @@ Monorepo for the **Tactica** AI chess coach app.
 
 ## Stack
 
-| Layer    | Tech                                |
-| -------- | ----------------------------------- |
-| Monorepo | pnpm workspaces + Turborepo         |
-| Language | TypeScript                          |
-| Database | Postgres                            |
-| Backend  | Fastify + ts-rest + Drizzle         |
-| Auth     | SuperTokens                         |
-| Frontend | ReactNative + Expo + Expo Router    |
-| Tests    | Vitest (unit), Playwright (web E2E) |
+| Layer            | Tech                                                      |
+| ---------------- | --------------------------------------------------------- |
+| Monorepo         | pnpm workspaces + Turborepo                               |
+| Language         | TypeScript                                                |
+| Database         | Postgres                                                  |
+| Backend Services | Fastify + ts-rest + Drizzle                               |
+| Auth             | SuperTokens                                               |
+| Frontend         | ReactNative + Expo + Expo Router                          |
+| Tests            | Vitest (unit), Playwright (web E2E), Maestro (mobile E2E) |
 
 ## Local dev
 

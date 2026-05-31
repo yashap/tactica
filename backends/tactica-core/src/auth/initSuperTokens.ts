@@ -25,9 +25,12 @@ export const initSuperTokens = (): void => {
     recipeList: [
       EmailPassword.init(),
       Session.init({
-        // Use cookies for browser clients; SuperTokens will still attach access tokens via response
-        // headers but the canonical session state lives in cookies the browser auto-attaches.
-        getTokenTransferMethod: () => 'cookie',
+        // Uniform header-based auth on every platform. The client (`buildTacticaAxios.ts`)
+        // sends `st-auth-mode: header`, stores the returned `st-access-token` / `st-refresh-token`
+        // headers in AsyncStorage, and attaches them as `Authorization: Bearer …` on subsequent
+        // requests. Avoids the cross-origin / native cookie-persistence quirks that previously
+        // dropped sessions on iOS.
+        getTokenTransferMethod: () => 'header',
       }),
     ],
   })
