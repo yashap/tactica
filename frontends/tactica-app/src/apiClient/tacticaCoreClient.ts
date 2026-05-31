@@ -1,10 +1,10 @@
-import { AxiosInstanceBuilder } from '@tactica/api-client-utils'
 import { TacticaCoreClient } from '@tactica/tactica-core-client'
-import { config } from '../config'
+import { buildTacticaAxios } from '../auth/buildTacticaAxios'
 
-const axiosInstance = AxiosInstanceBuilder.build({
-  baseURL: config.tacticaCoreUrl,
-  withCredentials: true,
-})
+// Shares the same builder (and therefore the same SuperTokens auto-refresh behavior) as authApi.
+// Each axios instance still maintains its own in-flight refresh promise — that's fine because
+// they share cookies, so a refresh triggered via either instance updates the access token cookie
+// the other instance reads on its next call.
+const axiosInstance = buildTacticaAxios()
 
 export const tacticaCoreClient = new TacticaCoreClient(axiosInstance)

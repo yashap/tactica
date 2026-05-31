@@ -1,30 +1,7 @@
-import { buildServerErrorFromDto } from '@tactica/errors'
-import axios, { type AxiosError, type AxiosInstance } from 'axios'
-import { config } from '../config'
+import { buildTacticaAxios } from './buildTacticaAxios'
 
-const buildAuthAxios = (): AxiosInstance => {
-  const instance = axios.create({
-    baseURL: config.tacticaCoreUrl,
-    withCredentials: true,
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json', rid: 'emailpassword' },
-    timeout: 30_000,
-  })
-  instance.interceptors.response.use(
-    (response) => response,
-    (error: unknown) => {
-      const axiosError = error as AxiosError
-      const status = axiosError.response?.status
-      const payload = axiosError.response?.data
-      if (status && payload) {
-        throw buildServerErrorFromDto(payload, status)
-      }
-      throw error
-    },
-  )
-  return instance
-}
-
-const authAxios = buildAuthAxios()
+// SuperTokens emailpassword routes require the `rid: emailpassword` header.
+const authAxios = buildTacticaAxios({ rid: 'emailpassword' })
 
 export type AuthFieldError = { id: string; error: string }
 
