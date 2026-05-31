@@ -13,14 +13,12 @@
   },
   "dependencies": {
     "@playwright/test": "^1.49.1",
-    "@tactica/tactica-core-contract": "workspace:*",
-    "pg": "^8.16.3"
+    "@tactica/tactica-core-contract": "workspace:*"
   },
   "devDependencies": {
     "@tactica/eslint-config": "workspace:*",
     "@tactica/tsconfig": "workspace:*",
     "@types/node": "^22.10.0",
-    "@types/pg": "^8.11.10",
     "eslint": "^9.34.0",
     "typescript": "^5.9.2"
   }

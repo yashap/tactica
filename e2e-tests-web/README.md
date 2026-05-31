@@ -24,18 +24,22 @@ pnpm serve:tactica:web
 pnpm test:e2e:web
 ```
 
-## State cleanup
+## State isolation
 
-Before each test, the fixture truncates the `Todo` table in the `tactica_core` DB _and_ the SuperTokens user tables in the `supertokens` DB on the dev Postgres container. This means **running E2E will wipe out local todos and accounts** — keep that in mind if you have manual local data you care about.
+Tests do **not** touch your local dev data. Each test:
+
+- Uses a unique signup email (`tactica-e2e-${timestamp}-${random}@example.com`), so it never collides with previous test runs or your manual dev accounts.
+- Gets a fresh Playwright browser context with no cookies / storage, so there's no carry-over session.
+- Deletes the todo it created as the last step of the flow, so it leaves no Todo rows behind.
+
+The only residue from each run is a single dead SuperTokens user with a unique throwaway email — harmless to leave around. If you want to wipe them, use the per-service helpers documented in the main README (`pnpm --filter @tactica/supertokens db:clean` for SuperTokens accounts; `pnpm --filter @tactica/tactica-core db:clean` for the `Todo` table).
 
 ## Configuration
 
 Service URLs are read from env, with these defaults:
 
-| Variable               | Default                                                                                     |
-| ---------------------- | ------------------------------------------------------------------------------------------- |
-| `TACTICA_WEB_URL`      | `http://localhost:8081`                                                                     |
-| `TACTICA_CORE_URL`     | `http://localhost:3501`                                                                     |
-| `SUPERTOKENS_CORE_URL` | `http://localhost:3567`                                                                     |
-| `DATABASE_URL`         | `postgres://tactica_core:tactica_core_password@localhost:5440/tactica_core?sslmode=disable` |
-| `SUPERTOKENS_DB_URL`   | `postgres://supertokens:supertokens_password@localhost:5440/supertokens?sslmode=disable`    |
+| Variable               | Default                 |
+| ---------------------- | ----------------------- |
+| `TACTICA_WEB_URL`      | `http://localhost:8081` |
+| `TACTICA_CORE_URL`     | `http://localhost:3501` |
+| `SUPERTOKENS_CORE_URL` | `http://localhost:3567` |

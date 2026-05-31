@@ -1,9 +1,9 @@
-import { type ExpoConfig } from 'expo/config'
+import { type ConfigContext, type ExpoConfig } from 'expo/config'
 
-export default (parentConfig: ExpoConfig): ExpoConfig => ({
-  ...parentConfig,
+export default ({ config }: ConfigContext): ExpoConfig => ({
+  ...(config as ExpoConfig),
   extra: {
-    ...(parentConfig.extra ?? {}),
+    ...(config.extra ?? {}),
     tacticaCoreUrl: process.env['TACTICA_CORE_URL'] ?? 'http://localhost:3501',
   },
 })

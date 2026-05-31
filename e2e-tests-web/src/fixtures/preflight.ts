@@ -1,5 +1,4 @@
 import { test as base } from '@playwright/test'
-import { cleanupDatabase } from './db'
 
 const TACTICA_CORE_URL = process.env['TACTICA_CORE_URL'] ?? 'http://localhost:3501'
 const SUPERTOKENS_CORE_URL = process.env['SUPERTOKENS_CORE_URL'] ?? 'http://localhost:3567'
@@ -23,7 +22,9 @@ export const test = base.extend({
     await checkReachable('Expo Web', EXPO_WEB_URL)
     await checkReachable('tactica-core', TACTICA_CORE_URL)
     await checkReachable('SuperTokens core', `${SUPERTOKENS_CORE_URL}/hello`)
-    await cleanupDatabase()
+    // No database cleanup intentionally — each test generates a unique email + Playwright
+    // gives every test a fresh browser context (no cookies), so the test is self-isolating
+    // and we don't touch your local dev accounts or todos.
     await use(page)
   },
 })
