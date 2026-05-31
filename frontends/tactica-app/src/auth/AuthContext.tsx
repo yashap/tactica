@@ -1,5 +1,7 @@
+import { useQueryClient } from '@tanstack/react-query'
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import * as authApi from './authApi'
+import { setAuthLostHandler } from './authEvents'
 
 export interface AuthState {
   status: 'initializing' | 'logged-out' | 'logged-in'
@@ -29,17 +31,34 @@ const checkSession = async (): Promise<AuthState> => {
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, setState] = useState<AuthState>({ status: 'initializing' })
+  const queryClient = useQueryClient()
+
+  // Flip to logged-out and wipe any cached per-user data. Used by both `signOut` (intentional)
+  // and the axios refresh-failure path (unrecoverable 401 mid-session).
+  const clearSessionLocally = useCallback((): void => {
+    queryClient.clear()
+    setState({ status: 'logged-out' })
+  }, [queryClient])
 
   useEffect(() => {
     let cancelled = false
+
+    // Register the side-channel from axios → React state. Any 401 the refresh interceptor can't
+    // recover from will end up calling this and bouncing the user to /logIn via (app)/_layout.
+    setAuthLostHandler(() => {
+      if (!cancelled) clearSessionLocally()
+    })
+
     void (async () => {
       const next = await checkSession()
       if (!cancelled) setState(next)
     })()
+
     return () => {
       cancelled = true
+      setAuthLostHandler(null)
     }
-  }, [])
+  }, [clearSessionLocally])
 
   const signIn = useCallback(async (email: string, password: string) => {
     const result = await authApi.signIn(email, password)
@@ -60,9 +79,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [])
 
   const signOut = useCallback(async () => {
-    await authApi.signOut()
-    setState({ status: 'logged-out' })
-  }, [])
+    // The user's intent is clear — clear local state regardless of whether the server-side
+    // signout actually succeeded (it may fail due to a dead server, an already-invalidated
+    // session, etc.). Worst case the cookies linger until they expire or get overwritten by the
+    // next signin.
+    try {
+      await authApi.signOut()
+    } catch (error) {
+      console.warn('Server signout failed; clearing local session anyway', error)
+    }
+    clearSessionLocally()
+  }, [clearSessionLocally])
 
   const value = useMemo<AuthContextValue>(() => ({ state, signIn, signUp, signOut }), [state, signIn, signUp, signOut])
 

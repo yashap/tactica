@@ -1,6 +1,7 @@
 import { buildServerErrorFromDto } from '@tactica/errors'
 import axios, { type AxiosError, type AxiosInstance, type InternalAxiosRequestConfig } from 'axios'
 import { config } from '../config'
+import { notifyAuthLost } from './authEvents'
 
 const REFRESH_PATH = '/auth/session/refresh'
 
@@ -47,11 +48,19 @@ const attachRefreshInterceptor = (instance: AxiosInstance): void => {
     async (error: unknown) => {
       const axiosError = error as AxiosError
       const requestConfig = axiosError.config as RetryableConfig | undefined
+      const status = axiosError.response?.status
+
+      // No config to retry against, or we already retried, or it's not the "try refresh" signal —
+      // propagate the error. If the failure was a 401 we still consider the session lost so the
+      // UI can flip to logged-out (covers server-revoked sessions, missing cookies, etc.).
       if (!requestConfig || requestConfig._tacticaRefreshAttempted || !needsRefresh(axiosError)) {
+        if (status === 401) notifyAuthLost()
         throw error
       }
+
       const refreshed = await refresh()
       if (!refreshed) {
+        notifyAuthLost()
         throw error
       }
       requestConfig._tacticaRefreshAttempted = true
