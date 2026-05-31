@@ -1,5 +1,5 @@
 {
-  "name": "@tactica/logging",
+  "name": "@tactica/context-propagation",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -22,12 +22,8 @@
     "clean": "rm -rf dist .turbo",
     "format": "prettier --write \"src/**/*.{ts,tsx}\"",
     "lint": "eslint \"src/**/*.{ts,tsx}\"",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "typecheck": "tsc --noEmit"
-  },
-  "dependencies": {
-    "@tactica/correlation-id-propagator": "workspace:*",
-    "winston": "^3.17.0"
   },
   "devDependencies": {
     "@tactica/eslint-config": "workspace:*",

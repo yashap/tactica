@@ -1,5 +1,5 @@
 {
-  "name": "@tactica/logging",
+  "name": "@tactica/correlation-id-propagator",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -22,19 +22,16 @@
     "clean": "rm -rf dist .turbo",
     "format": "prettier --write \"src/**/*.{ts,tsx}\"",
     "lint": "eslint \"src/**/*.{ts,tsx}\"",
-    "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@tactica/correlation-id-propagator": "workspace:*",
-    "winston": "^3.17.0"
+    "@tactica/context-propagation": "workspace:*"
   },
   "devDependencies": {
     "@tactica/eslint-config": "workspace:*",
     "@tactica/tsconfig": "workspace:*",
     "@types/node": "^22.10.0",
     "eslint": "^9.34.0",
-    "typescript": "^5.9.2",
-    "vitest": "^2.1.8"
+    "typescript": "^5.9.2"
   }
 }

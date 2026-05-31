@@ -1,61 +1,140 @@
+import { CorrelationIdPropagator } from '@tactica/correlation-id-propagator'
 import winston from 'winston'
 
-export type LogLevel = 'error' | 'warn' | 'info' | 'http' | 'debug' | 'off'
-
-export interface LoggerOptions {
-  level?: LogLevel
-  json?: boolean
-  defaultMeta?: Record<string, unknown>
+export enum LogLevel {
+  Off = 'off',
+  Error = 'error',
+  Warn = 'warn',
+  Info = 'info',
+  Http = 'http',
+  Debug = 'debug',
+  Trace = 'trace',
 }
 
-const buildWinstonLogger = (options: LoggerOptions): winston.Logger => {
-  const level = options.level ?? (process.env['LOG_LEVEL'] as LogLevel | undefined) ?? 'info'
-  const useJson = options.json ?? process.env['JSON_LOGS'] === 'true'
-  const silent = level === 'off'
+const levels: Record<LogLevel, number> = {
+  [LogLevel.Off]: 0,
+  [LogLevel.Error]: 1,
+  [LogLevel.Warn]: 2,
+  [LogLevel.Info]: 3,
+  [LogLevel.Http]: 4,
+  [LogLevel.Debug]: 5,
+  [LogLevel.Trace]: 6,
+}
 
-  return winston.createLogger({
-    level: silent ? 'error' : level,
-    silent,
-    defaultMeta: options.defaultMeta,
-    format: useJson
-      ? winston.format.combine(winston.format.timestamp(), winston.format.json())
-      : winston.format.combine(
-          winston.format.colorize(),
-          winston.format.timestamp(),
-          winston.format.printf(({ timestamp, level: logLevel, message, ...meta }) => {
-            const metaStr = Object.keys(meta).length > 0 ? ` ${JSON.stringify(meta)}` : ''
-            return `${String(timestamp)} ${String(logLevel)}: ${String(message)}${metaStr}`
-          }),
-        ),
-    transports: [new winston.transports.Console()],
-  })
+const colors: Record<LogLevel, string> = {
+  [LogLevel.Off]: 'gray',
+  [LogLevel.Error]: 'red',
+  [LogLevel.Warn]: 'yellow',
+  [LogLevel.Info]: 'green',
+  [LogLevel.Http]: 'magenta',
+  [LogLevel.Debug]: 'cyan',
+  [LogLevel.Trace]: 'blue',
+}
+
+const AnsiYellow = '[33m'
+const AnsiCyan = '[36m'
+
+const isLogLevel = (value: string): value is LogLevel => Object.values(LogLevel).includes(value as LogLevel)
+
+const getLevel = (): LogLevel => {
+  const raw = (process.env['LOG_LEVEL'] ?? LogLevel.Info).toLowerCase()
+  return isLogLevel(raw) ? raw : LogLevel.Info
+}
+
+const getFormat = (): winston.Logform.Format => {
+  if ((process.env['JSON_LOGS'] ?? '').toLowerCase() === 'true') {
+    return winston.format.combine(winston.format.timestamp(), winston.format.json())
+  }
+  return winston.format.combine(
+    winston.format.colorize({ colors }),
+    winston.format.timestamp({ format: 'hh:mm:ss' }),
+    winston.format.align(),
+    winston.format.printf((log) => {
+      const { timestamp, level, name, message, error, ...metadata } = log as Record<string, unknown>
+      const metadataKeys = Object.keys(metadata)
+      const metadataString = metadataKeys.length > 0 ? ` ${AnsiCyan}${JSON.stringify(metadata)}${AnsiYellow}` : ''
+      const errorString = error ? `\n  ${(error as Error).stack ?? String(error)}` : ''
+      const namePart = name ? ` [${String(name)}]` : ''
+      return `${String(timestamp)} ${String(level)}${namePart}: ${String(message)}${metadataString}${errorString}`
+    }),
+  )
+}
+
+export interface Payload {
+  error?: unknown
+  [key: string]: unknown
 }
 
 export class Logger {
-  private readonly winston: winston.Logger
+  private readonly underlyingLogger: winston.Logger
+  private readonly enabledLevelValue: number
 
-  constructor(options: LoggerOptions = {}) {
-    this.winston = buildWinstonLogger(options)
+  constructor(
+    private readonly name: string,
+    private readonly defaultMetadata?: Payload,
+  ) {
+    const level = getLevel()
+    this.underlyingLogger = winston.createLogger({
+      levels,
+      level,
+      format: getFormat(),
+      defaultMeta: defaultMetadata,
+      transports: [new winston.transports.Console()],
+    })
+    this.enabledLevelValue = levels[level]
   }
 
-  public error(message: string, meta?: Record<string, unknown>): void {
-    this.winston.error(message, meta)
+  public error(message: string, payload?: Payload): void {
+    this.log(LogLevel.Error, message, payload)
   }
 
-  public warn(message: string, meta?: Record<string, unknown>): void {
-    this.winston.warn(message, meta)
+  public warn(message: string, payload?: Payload): void {
+    this.log(LogLevel.Warn, message, payload)
   }
 
-  public info(message: string, meta?: Record<string, unknown>): void {
-    this.winston.info(message, meta)
+  public info(message: string, payload?: Payload): void {
+    this.log(LogLevel.Info, message, payload)
   }
 
-  public http(message: string, meta?: Record<string, unknown>): void {
-    this.winston.http(message, meta)
+  public http(message: string, payload?: Payload): void {
+    this.log(LogLevel.Http, message, payload)
   }
 
-  public debug(message: string, meta?: Record<string, unknown>): void {
-    this.winston.debug(message, meta)
+  public debug(message: string, payload?: Payload): void {
+    this.log(LogLevel.Debug, message, payload)
+  }
+
+  public trace(message: string, payload?: Payload): void {
+    this.log(LogLevel.Trace, message, payload)
+  }
+
+  /**
+   * Create a child logger that inherits this logger's default metadata, optionally overriding/adding fields.
+   */
+  public child(name: string, defaultMetadataOverrides?: Payload): Logger {
+    return new Logger(name, { ...this.defaultMetadata, ...defaultMetadataOverrides })
+  }
+
+  /**
+   * Check whether a level is enabled. Useful when building the payload is expensive.
+   */
+  public isLevelEnabled(level: LogLevel): boolean {
+    return levels[level] <= this.enabledLevelValue
+  }
+
+  private log(level: LogLevel, message: string, payload?: Payload): void {
+    const { error, ...metadata } = payload ?? {}
+    const errorMetadata = error && error instanceof Error ? (error as { metadata?: unknown }).metadata : undefined
+    const correlationId = CorrelationIdPropagator.getContext()
+    this.underlyingLogger.log({
+      level,
+      message,
+      name: this.name,
+      ...(correlationId ? { correlationId } : {}),
+      ...this.defaultMetadata,
+      ...metadata,
+      ...(error === undefined ? {} : { error, ...(errorMetadata ? { errorMetadata } : {}) }),
+    })
   }
 }
 
@@ -63,7 +142,7 @@ let defaultLogger: Logger | undefined
 
 export const getLogger = (): Logger => {
   if (!defaultLogger) {
-    defaultLogger = new Logger()
+    defaultLogger = new Logger('app')
   }
   return defaultLogger
 }

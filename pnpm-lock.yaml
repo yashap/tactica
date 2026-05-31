@@ -45,13 +45,13 @@ importers:
         version: 3.52.1(@ts-rest/core@3.52.1(@types/node@22.19.19)(zod@3.25.76))(fastify@4.29.1)(zod@3.25.76)
       drizzle-orm:
         specifier: ^0.44.5
-        version: 0.44.7(@types/pg@8.20.0)(pg@8.21.0)
+        version: 0.44.7(@types/pg@8.20.0)(pg@8.21.0)(postgres@3.4.9)
       fastify:
         specifier: ^4.28.1
         version: 4.29.1
-      pg:
-        specifier: ^8.16.3
-        version: 8.21.0
+      postgres:
+        specifier: ^3.4.5
+        version: 3.4.9
       supertokens-node:
         specifier: ^23.0.1
         version: 23.1.0
@@ -68,9 +68,6 @@ importers:
       '@types/node':
         specifier: ^22.10.0
         version: 22.19.19
-      '@types/pg':
-        specifier: ^8.11.10
-        version: 8.20.0
       '@types/supertest':
         specifier: ^6.0.2
         version: 6.0.3
@@ -246,14 +243,7 @@ importers:
         specifier: ^2.1.8
         version: 2.1.9(@types/node@22.19.19)(lightningcss@1.27.0)(terser@5.48.0)
 
-  packages/drizzle-utils:
-    dependencies:
-      drizzle-orm:
-        specifier: ^0.44.5
-        version: 0.44.7(@types/pg@8.20.0)(pg@8.21.0)
-      pg:
-        specifier: ^8.16.3
-        version: 8.21.0
+  packages/context-propagation:
     devDependencies:
       '@tactica/eslint-config':
         specifier: workspace:*
@@ -264,9 +254,56 @@ importers:
       '@types/node':
         specifier: ^22.10.0
         version: 22.19.19
-      '@types/pg':
-        specifier: ^8.11.10
-        version: 8.20.0
+      eslint:
+        specifier: ^9.34.0
+        version: 9.39.4
+      typescript:
+        specifier: ^5.9.2
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.19.19)(lightningcss@1.27.0)(terser@5.48.0)
+
+  packages/correlation-id-propagator:
+    dependencies:
+      '@tactica/context-propagation':
+        specifier: workspace:*
+        version: link:../context-propagation
+    devDependencies:
+      '@tactica/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      '@tactica/tsconfig':
+        specifier: workspace:*
+        version: link:../tsconfig
+      '@types/node':
+        specifier: ^22.10.0
+        version: 22.19.19
+      eslint:
+        specifier: ^9.34.0
+        version: 9.39.4
+      typescript:
+        specifier: ^5.9.2
+        version: 5.9.3
+
+  packages/drizzle-utils:
+    dependencies:
+      drizzle-orm:
+        specifier: ^0.44.5
+        version: 0.44.7(@types/pg@8.20.0)(pg@8.21.0)(postgres@3.4.9)
+      postgres:
+        specifier: ^3.4.5
+        version: 3.4.9
+    devDependencies:
+      '@tactica/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      '@tactica/tsconfig':
+        specifier: workspace:*
+        version: link:../tsconfig
+      '@types/node':
+        specifier: ^22.10.0
+        version: 22.19.19
       eslint:
         specifier: ^9.34.0
         version: 9.39.4
@@ -327,6 +364,9 @@ importers:
       '@fastify/formbody':
         specifier: ^7.4.0
         version: 7.4.0
+      '@tactica/correlation-id-propagator':
+        specifier: workspace:*
+        version: link:../correlation-id-propagator
       '@tactica/errors':
         specifier: workspace:*
         version: link:../errors
@@ -370,9 +410,43 @@ importers:
 
   packages/logging:
     dependencies:
+      '@tactica/correlation-id-propagator':
+        specifier: workspace:*
+        version: link:../correlation-id-propagator
       winston:
         specifier: ^3.17.0
         version: 3.19.0
+    devDependencies:
+      '@tactica/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      '@tactica/tsconfig':
+        specifier: workspace:*
+        version: link:../tsconfig
+      '@types/node':
+        specifier: ^22.10.0
+        version: 22.19.19
+      eslint:
+        specifier: ^9.34.0
+        version: 9.39.4
+      typescript:
+        specifier: ^5.9.2
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.19.19)(lightningcss@1.27.0)(terser@5.48.0)
+
+  packages/pagination:
+    dependencies:
+      '@tactica/errors':
+        specifier: workspace:*
+        version: link:../errors
+      js-base64:
+        specifier: ^3.7.7
+        version: 3.7.8
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
     devDependencies:
       '@tactica/eslint-config':
         specifier: workspace:*
@@ -448,6 +522,34 @@ importers:
       typescript:
         specifier: ^5.9.2
         version: 5.9.3
+
+  packages/time:
+    dependencies:
+      '@js-temporal/polyfill':
+        specifier: ^0.5.1
+        version: 0.5.1
+      '@tactica/errors':
+        specifier: workspace:*
+        version: link:../errors
+    devDependencies:
+      '@tactica/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      '@tactica/tsconfig':
+        specifier: workspace:*
+        version: link:../tsconfig
+      '@types/node':
+        specifier: ^22.10.0
+        version: 22.19.19
+      eslint:
+        specifier: ^9.34.0
+        version: 9.39.4
+      typescript:
+        specifier: ^5.9.2
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.19.19)(lightningcss@1.27.0)(terser@5.48.0)
 
   packages/tsconfig: {}
 
@@ -2016,6 +2118,10 @@ packages:
 
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
+
+  '@js-temporal/polyfill@0.5.1':
+    resolution: {integrity: sha512-hloP58zRVCRSpgDxmqCWJNlizAlUgJFqG2ypq79DCvyv9tHjRYMDOcPFjzfl/A1/YxDvRCZz8wvZvmapQnKwFQ==}
+    engines: {node: '>=12'}
 
   '@noble/hashes@1.8.0':
     resolution: {integrity: sha512-jCs9ldd7NwzpgXDIf6P3+NrHh9/sD6CQdxHyjQI+h/6rDNo88ypBxxz45UDuZHz9r3tNz7N/VInSVoVdtXEI4A==}
@@ -4300,6 +4406,9 @@ packages:
   jose@4.15.9:
     resolution: {integrity: sha512-1vUQX+IdDMVPj4k8kOxgUqlcK518yluMuGZwqlr44FS1ppZB/5GWh4rZG89erpOBOJjU/OBsnCVFfapsRz6nEA==}
 
+  js-base64@3.7.8:
+    resolution: {integrity: sha512-hNngCeKxIUQiEUN3GPJOkz4wF/YvdUdbNL9hsBcMQTkKzboD7T/q3OYOuuPZLUE6dBxSGpwhk5mwuDud7JVAow==}
+
   js-tokens@4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
 
@@ -4310,6 +4419,9 @@ packages:
   js-yaml@4.1.1:
     resolution: {integrity: sha512-qQKT4zQxXl8lLwBtHMWwaTcGfFOZviOJet3Oy/xmGk2gZH677CJM9EvtfdSkgWcATZhj/55JZ0rmy3myCT5lsA==}
     hasBin: true
+
+  jsbi@4.3.2:
+    resolution: {integrity: sha512-9fqMSQbhJykSeii05nxKl4m6Eqn2P6rOlYiS+C5Dr/HPIU/7yZxu5qzbs40tgaFORiw2Amd0mirjxatXYMkIew==}
 
   jsc-android@250231.0.0:
     resolution: {integrity: sha512-rS46PvsjYmdmuz1OAWXY/1kCYG7pnf1TBqeTiOJr1iDz7s5DLxxC9n/ZMknLDxzYzNVfI7R95MH10emSSG1Wuw==}
@@ -5104,6 +5216,10 @@ packages:
   postgres-interval@1.2.0:
     resolution: {integrity: sha512-9ZhXKM/rw350N1ovuWHbGxnGh/SNJ4cnxHiM0rxE4VN41wsg8P8zWn9hv/buK00RP4WvlOyr/RBDiptyxVbkZQ==}
     engines: {node: '>=0.10.0'}
+
+  postgres@3.4.9:
+    resolution: {integrity: sha512-GD3qdB0x1z9xgFI6cdRD6xu2Sp2WCOEoe3mtnyB5Ee0XrrL5Pe+e4CCnJrRMnL1zYtRDZmQQVbvOttLnKDLnaw==}
+    engines: {node: '>=12'}
 
   prelude-ls@1.2.1:
     resolution: {integrity: sha512-vkcDPrRZo1QZLbn5RLGPpg/WmIQ65qoWWhcGKf/b5eplkkarX0m9z8ppCat4mlOqUsWpyNuYgO3VRyrYHSzX5g==}
@@ -8010,6 +8126,10 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
+  '@js-temporal/polyfill@0.5.1':
+    dependencies:
+      jsbi: 4.3.2
+
   '@noble/hashes@1.8.0': {}
 
   '@nodelib/fs.scandir@2.1.5':
@@ -9393,10 +9513,11 @@ snapshots:
       esbuild: 0.25.12
       tsx: 4.22.3
 
-  drizzle-orm@0.44.7(@types/pg@8.20.0)(pg@8.21.0):
+  drizzle-orm@0.44.7(@types/pg@8.20.0)(pg@8.21.0)(postgres@3.4.9):
     optionalDependencies:
       '@types/pg': 8.20.0
       pg: 8.21.0
+      postgres: 3.4.9
 
   dunder-proto@1.0.1:
     dependencies:
@@ -10624,6 +10745,8 @@ snapshots:
 
   jose@4.15.9: {}
 
+  js-base64@3.7.8: {}
+
   js-tokens@4.0.0: {}
 
   js-yaml@3.14.2:
@@ -10634,6 +10757,8 @@ snapshots:
   js-yaml@4.1.1:
     dependencies:
       argparse: 2.0.1
+
+  jsbi@4.3.2: {}
 
   jsc-android@250231.0.0: {}
 
@@ -11497,6 +11622,8 @@ snapshots:
   postgres-interval@1.2.0:
     dependencies:
       xtend: 4.0.2
+
+  postgres@3.4.9: {}
 
   prelude-ls@1.2.1: {}
 
