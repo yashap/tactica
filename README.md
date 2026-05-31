@@ -110,10 +110,12 @@ This means editing `packages/errors/src/something.ts` is picked up immediately b
 
 ## Ports
 
-| Service          | Port |
-| ---------------- | ---- |
-| Expo Web         | 8081 |
-| tactica-core     | 3501 |
-| SuperTokens core | 3567 |
-| Postgres (dev)   | 5440 |
-| Postgres (test)  | 5441 |
+| Service                       | Port |
+| ----------------------------- | ---- |
+| Expo (web, Metro bundler)     | 8081 |
+| Expo (iOS, Metro bundler)     | 8082 |
+| Expo (Android, Metro bundler) | 8083 |
+| tactica-core                  | 3501 |
+| SuperTokens core              | 3567 |
+| Postgres (dev)                | 5440 |
+| Postgres (test)               | 5441 |
