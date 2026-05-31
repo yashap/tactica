@@ -18,6 +18,15 @@ declare module 'fastify' {
 
 const formatDurationMs = (start: bigint): number => Number(process.hrtime.bigint() - start) / 1e6
 
+type LogMethod = 'debug' | 'info' | 'warn' | 'error'
+
+const pickLogMethod = (method: string, statusCode: number): LogMethod => {
+  if (method === 'OPTIONS') return 'debug'
+  if (statusCode >= 500) return 'error'
+  if (statusCode >= 400) return 'warn'
+  return 'info'
+}
+
 /**
  * Logs each request once on completion (`Request completed`) with method, url, status code,
  * remote address, user agent, and wall-clock duration. An `onRequest` hook stashes the start
@@ -34,7 +43,8 @@ export const httpLoggingPlugin = fp<HttpLoggingPluginOptions>(
     fastify.addHook('onResponse', async (request: FastifyRequest, reply: FastifyReply) => {
       const start = request.httpLogState?.start
       const durationMs = start ? formatDurationMs(start) : undefined
-      logger.info('Request completed', {
+      const logMethod = pickLogMethod(request.method, reply.statusCode)
+      logger[logMethod]('Request completed', {
         method: request.method,
         url: request.url,
         statusCode: reply.statusCode,
