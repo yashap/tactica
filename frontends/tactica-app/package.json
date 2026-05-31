@@ -10,7 +10,7 @@
     "web": "expo start --web --port 8081",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "format": "prettier --write \"src/**/*.{ts,tsx}\"",
+    "format": "eslint \"src/**/*.{ts,tsx}\" --fix",
     "lint": "tsc --noEmit && eslint \"src/**/*.{ts,tsx}\""
   },
   "dependencies": {

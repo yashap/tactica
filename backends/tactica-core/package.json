@@ -12,7 +12,7 @@
     "db:up": "../../tools/scripts/ensure_postgres_db.sh -d tactica_core -c tactica_postgres_dev && ../../tools/scripts/ensure_postgres_user.sh -u tactica_core -w tactica_core_password -d tactica_core -c tactica_postgres_dev",
     "db:up:test": "../../tools/scripts/ensure_postgres_db.sh -d tactica_core -c tactica_postgres_test && ../../tools/scripts/ensure_postgres_user.sh -u tactica_core -w tactica_core_password -d tactica_core -c tactica_postgres_test",
     "db:generate": "pnpm --filter @tactica/drizzle-utils build && drizzle-kit generate",
-    "format": "prettier --write \"src/**/*.ts\"",
+    "format": "eslint \"src/**/*.ts\" --fix",
     "lint": "tsc --noEmit && eslint \"src/**/*.ts\"",
     "serve": "tsx watch --conditions=development src/main.ts",
     "start": "node dist/main.js",

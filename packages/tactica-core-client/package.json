@@ -20,7 +20,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "clean": "rm -rf dist .turbo",
-    "format": "prettier --write \"src/**/*.{ts,tsx}\"",
+    "format": "eslint \"src/**/*.{ts,tsx}\" --fix",
     "lint": "tsc --noEmit && eslint \"src/**/*.{ts,tsx}\""
   },
   "dependencies": {
