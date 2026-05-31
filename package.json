@@ -1,0 +1,37 @@
+{
+  "name": "tactica",
+  "version": "0.0.1",
+  "private": true,
+  "packageManager": "pnpm@9.15.4",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "build:force": "turbo run build --force",
+    "clean": "pnpm db:clean && turbo run clean && rm -rf node_modules",
+    "db:up": "./tools/scripts/ensure_postgres_up.sh -c tactica_postgres_dev -v tactica_postgres_data_dev",
+    "db:up:test": "./tools/scripts/ensure_postgres_up.sh -p 5441 -c tactica_postgres_test -v tactica_postgres_data_test",
+    "db:clean": "docker rm -f -v tactica_postgres_dev tactica_postgres_test 2>/dev/null; docker volume rm -f tactica_postgres_data_dev tactica_postgres_data_test 2>/dev/null; exit 0",
+    "db:dump-fixtures": "turbo run db:dump-fixtures",
+    "db:migrate-up": "pnpm db:up && turbo run db:migrate-up",
+    "db:migrate-up:test": "pnpm db:up:test && turbo run db:migrate-up:test",
+    "db:restore-fixtures": "turbo run db:restore-fixtures",
+    "format": "prettier --write . && turbo run format",
+    "lint": "prettier --check . && turbo run lint",
+    "serve:backend": "turbo run serve --filter=@tactica/tactica-core",
+    "serve:tactica:web": "pnpm --filter @tactica/tactica-app web",
+    "serve:tactica:ios": "pnpm --filter @tactica/tactica-app ios",
+    "serve:tactica:android": "pnpm --filter @tactica/tactica-app android",
+    "sync": "pnpm install && pnpm db:migrate-up && pnpm db:migrate-up:test",
+    "test": "turbo run test",
+    "test:e2e:mobile": "pnpm --filter @tactica/e2e-tests-mobile test:e2e:mobile",
+    "test:e2e:web": "pnpm --filter @tactica/e2e-tests-web test:e2e",
+    "test:force": "turbo run test --force"
+  },
+  "devDependencies": {
+    "prettier": "^3.6.2",
+    "turbo": "^2.5.6",
+    "typescript": "^5.9.2"
+  }
+}

@@ -1,0 +1,58 @@
+# Expo Go bundle id on iOS; for Android use 'host.exp.exponent'. Switch to our own bundle id
+# when we move from Expo Go to a dev build.
+appId: host.exp.Exponent
+---
+# Open Expo Go with our dev-server URL so it loads our app directly instead of landing on the
+# project picker. The port matches `pnpm serve:tactica:ios` (--port 8082). Localhost works for
+# the iOS Simulator because it shares the host's network stack.
+- openLink: exp://127.0.0.1:8082
+
+# Build a unique email so each run is self-isolating and doesn't pollute dev data. Avoid backtick
+# template literals — Maestro's own `${...}` preprocessor walks them recursively and breaks the
+# string. Plain string concatenation works fine in Maestro's GraalVM JS engine.
+- evalScript: ${output.email = 'tactica-mobile-e2e-' + Date.now() + '-' + Math.floor(Math.random() * 1e6) + '@example.com'}
+
+- assertVisible:
+    id: 'logInScreen'
+
+# Navigate to signup
+- tapOn:
+    id: 'goToSignUp'
+- assertVisible:
+    id: 'signUpScreen'
+
+# Sign up. Password kept to letters + digits to dodge any shift-key flakiness in Maestro's
+# iOS input synthesis.
+- tapOn:
+    id: 'signUpEmailInput'
+- inputText: ${output.email}
+- tapOn:
+    id: 'signUpPasswordInput'
+- inputText: 'StrongPassword123'
+- tapOn:
+    id: 'submitSignUp'
+
+# Land on the todos screen with an empty state
+- assertVisible:
+    id: 'todosScreen'
+- assertVisible:
+    id: 'emptyState'
+
+# Create a todo and assert it shows up
+- tapOn:
+    id: 'newTodoInput'
+- inputText: 'Learn the Sicilian Defense'
+- tapOn:
+    id: 'addTodoButton'
+- assertVisible: 'Learn the Sicilian Defense'
+
+# Dismiss the keyboard so it doesn't intercept the next tap (iOS's Delete/backspace key would
+# otherwise be a candidate match for `text: 'Delete'`, and even with id-based targeting the
+# keyboard can occlude the delete button area on smaller Simulators).
+- hideKeyboard
+
+# Delete the todo we just created and assert we're back on the empty state
+- tapOn:
+    id: 'deleteTodo-.*'
+- assertVisible:
+    id: 'emptyState'

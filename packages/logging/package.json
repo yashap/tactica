@@ -1,0 +1,39 @@
+{
+  "name": "@tactica/logging",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "development": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "clean": "rm -rf dist .turbo",
+    "format": "eslint \"src/**/*.{ts,tsx}\" --fix",
+    "lint": "tsc --noEmit && eslint \"src/**/*.{ts,tsx}\"",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@tactica/correlation-id-propagator": "workspace:*",
+    "winston": "^3.17.0"
+  },
+  "devDependencies": {
+    "@tactica/eslint-config": "workspace:*",
+    "@tactica/tsconfig": "workspace:*",
+    "@types/node": "^22.10.0",
+    "eslint": "^9.34.0",
+    "typescript": "^5.9.2",
+    "vitest": "^2.1.8"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "@tactica/supertokens",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "db:clean": "pnpm db:up && docker rm -f supertokens 2>/dev/null; ../../tools/scripts/drop_db.sh supertokens tactica_postgres_dev && ../../tools/scripts/drop_user.sh supertokens tactica_postgres_dev",
+    "db:dump-fixtures": "../../tools/scripts/dump_fixtures.sh supertokens",
+    "db:migrate-up": "pnpm db:up",
+    "db:restore-fixtures": "pnpm db:clean && pnpm db:up && ../../tools/scripts/restore_fixtures.sh supertokens postgres://supertokens:supertokens_password@localhost:5432/supertokens?sslmode=disable && pnpm db:migrate-up",
+    "db:up": "../../tools/scripts/ensure_postgres_db.sh -d supertokens -c tactica_postgres_dev && ../../tools/scripts/ensure_postgres_user.sh -u supertokens -w supertokens_password -d supertokens -c tactica_postgres_dev",
+    "serve": "../../tools/scripts/serve_supertokens.sh"
+  }
+}
