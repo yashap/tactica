@@ -36,6 +36,30 @@ const AnsiCyan = '[36m'
 
 const isLogLevel = (value: string): value is LogLevel => Object.values(LogLevel).includes(value as LogLevel)
 
+const HTTP_SUMMARY_KEYS = ['method', 'url', 'statusCode', 'durationMs', 'remoteAddress', 'userAgent'] as const
+
+const formatDuration = (durationMs: number): string =>
+  durationMs >= 1000 ? `${(durationMs / 1000).toFixed(1)}s` : `${Math.round(durationMs)}ms`
+
+const formatHttpOrFallback = (
+  message: unknown,
+  metadata: Record<string, unknown>,
+): { displayMessage: string; displayMetadata: Record<string, unknown> } => {
+  const method = metadata['method']
+  const url = metadata['url']
+  const statusCode = metadata['statusCode']
+  const isHttp = typeof method === 'string' && typeof url === 'string' && typeof statusCode === 'number'
+  if (!isHttp) {
+    return { displayMessage: String(message), displayMetadata: metadata }
+  }
+  const durationMs = metadata['durationMs']
+  const durationPart = typeof durationMs === 'number' ? ` ${formatDuration(durationMs)}` : ''
+  const displayMessage = `${method} ${url} ${statusCode}${durationPart}`
+  const displayMetadata: Record<string, unknown> = { ...metadata }
+  for (const key of HTTP_SUMMARY_KEYS) delete displayMetadata[key]
+  return { displayMessage, displayMetadata }
+}
+
 const getLevel = (): LogLevel => {
   const raw = (process.env['LOG_LEVEL'] ?? LogLevel.Info).toLowerCase()
   return isLogLevel(raw) ? raw : LogLevel.Info
@@ -51,11 +75,19 @@ const getFormat = (): winston.Logform.Format => {
     winston.format.align(),
     winston.format.printf((log) => {
       const { timestamp, level, name, message, error, ...metadata } = log as Record<string, unknown>
-      const metadataKeys = Object.keys(metadata)
-      const metadataString = metadataKeys.length > 0 ? ` ${AnsiCyan}${JSON.stringify(metadata)}${AnsiYellow}` : ''
+
+      // Special-case HTTP completion logs. The httpLoggingPlugin emits payloads with
+      // `method` + `url` + `statusCode` (+ optional `durationMs`, `remoteAddress`, `userAgent`).
+      // Render them as a compact access-log line and strip those keys from the metadata blob,
+      // so the remaining payload (correlationId, etc.) stays useful instead of getting buried.
+      const { displayMessage, displayMetadata } = formatHttpOrFallback(message, metadata)
+
+      const metadataKeys = Object.keys(displayMetadata)
+      const metadataString =
+        metadataKeys.length > 0 ? ` ${AnsiCyan}${JSON.stringify(displayMetadata)}${AnsiYellow}` : ''
       const errorString = error ? `\n  ${(error as Error).stack ?? String(error)}` : ''
       const namePart = name ? ` [${String(name)}]` : ''
-      return `${String(timestamp)} ${String(level)}${namePart}: ${String(message)}${metadataString}${errorString}`
+      return `${String(timestamp)} ${String(level)}${namePart}: ${displayMessage}${metadataString}${errorString}`
     }),
   )
 }

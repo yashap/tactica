@@ -19,9 +19,9 @@ declare module 'fastify' {
 const formatDurationMs = (start: bigint): number => Number(process.hrtime.bigint() - start) / 1e6
 
 /**
- * Logs every request twice — once at start (`Request received`) and once at completion
- * (`Request completed`) with the response status code and the wall-clock duration in
- * milliseconds. Modeled after the structured payloads parker emits via `@parker/logging`.
+ * Logs each request once on completion (`Request completed`) with method, url, status code,
+ * remote address, user agent, and wall-clock duration. An `onRequest` hook stashes the start
+ * timestamp on the request so we can measure duration without emitting a separate log line.
  */
 export const httpLoggingPlugin = fp<HttpLoggingPluginOptions>(
   async (fastify: FastifyInstance, opts: HttpLoggingPluginOptions) => {
@@ -29,12 +29,6 @@ export const httpLoggingPlugin = fp<HttpLoggingPluginOptions>(
 
     fastify.addHook('onRequest', async (request: FastifyRequest) => {
       request.httpLogState = { start: process.hrtime.bigint() }
-      logger.info('Request received', {
-        method: request.method,
-        url: request.url,
-        remoteAddress: request.ip,
-        userAgent: request.headers['user-agent'],
-      })
     })
 
     fastify.addHook('onResponse', async (request: FastifyRequest, reply: FastifyReply) => {
@@ -44,6 +38,8 @@ export const httpLoggingPlugin = fp<HttpLoggingPluginOptions>(
         method: request.method,
         url: request.url,
         statusCode: reply.statusCode,
+        remoteAddress: request.ip,
+        userAgent: request.headers['user-agent'],
         ...(durationMs !== undefined ? { durationMs: Math.round(durationMs * 100) / 100 } : {}),
       })
     })
