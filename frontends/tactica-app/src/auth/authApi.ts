@@ -54,11 +54,11 @@ export const signOut = async (): Promise<void> => {
 }
 
 export const fetchSession = async (): Promise<{ userId: string } | undefined> => {
-  // We don't expose a dedicated /auth/session endpoint. Probe a protected route:
-  // 200 → authenticated, 401 → not.
+  // Hit the dedicated session endpoint — lightweight, doesn't trigger a todos refetch on every
+  // page load, and returns the SuperTokens user id directly.
   try {
-    await authAxios.get('/tactica-core/todos')
-    return { userId: 'authenticated' }
+    const response = await authAxios.get<{ userId: string }>('/tactica-core/session')
+    return response.data
   } catch {
     return undefined
   }

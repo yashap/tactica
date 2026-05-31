@@ -77,25 +77,13 @@ const TodosScreen: React.FC = () => {
         testID="todoList"
         data={todosQuery.data ?? []}
         keyExtractor={(item: Todo) => item.id}
-        renderItem={({ item }) => (
-          <TodoRow
-            todo={item}
-            onDelete={() => deleteMutation.mutate(item.id)}
-            onChange={async () => {
-              await queryClient.invalidateQueries({ queryKey: ['todos'] })
-            }}
-          />
-        )}
+        renderItem={({ item }) => <TodoRow todo={item} onDelete={() => deleteMutation.mutate(item.id)} />}
       />
     </View>
   )
 }
 
-const TodoRow: React.FC<{ todo: Todo; onDelete: () => void; onChange: () => Promise<void> }> = ({
-  todo,
-  onDelete,
-  onChange,
-}) => {
+const TodoRow: React.FC<{ todo: Todo; onDelete: () => void }> = ({ todo, onDelete }) => {
   const queryClient = useQueryClient()
   const [editing, setEditing] = useState(false)
   const [title, setTitle] = useState(todo.title)
@@ -105,7 +93,6 @@ const TodoRow: React.FC<{ todo: Todo; onDelete: () => void; onChange: () => Prom
     onSuccess: async () => {
       setEditing(false)
       await queryClient.invalidateQueries({ queryKey: ['todos'] })
-      await onChange()
     },
   })
 

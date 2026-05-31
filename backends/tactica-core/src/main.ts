@@ -1,7 +1,8 @@
-import { FastifyAppBuilder } from '@tactica/fastify-utils'
+import { FastifyAppBuilder, requireSession } from '@tactica/fastify-utils'
 import { getLogger } from '@tactica/logging'
 import { initSuperTokens } from './auth/initSuperTokens.js'
 import { config } from './config.js'
+import { registerSessionRoutes } from './domain/session/registerSessionRoutes.js'
 import { registerTodoRoutes } from './domain/todo/registerTodoRoutes.js'
 
 const start = async (): Promise<void> => {
@@ -9,6 +10,15 @@ const start = async (): Promise<void> => {
   const app = await FastifyAppBuilder.build({
     websiteDomain: config.websiteDomain,
     registerRoutes: async (instance) => {
+      // Gate every /tactica-core/* path behind SuperTokens session verification. The /auth/*
+      // paths handled by the SuperTokens plugin are unaffected — they need to be reachable
+      // without a session so users can sign up / sign in.
+      instance.addHook('preHandler', async (req, reply) => {
+        if (req.url.startsWith('/tactica-core/')) {
+          await requireSession(req, reply)
+        }
+      })
+      await registerSessionRoutes(instance)
       await registerTodoRoutes(instance)
     },
   })

@@ -10,6 +10,7 @@ import {
 } from '@tactica/api-client-utils'
 import {
   type CreateTodoRequest,
+  type SessionInfo,
   tacticaCoreContract,
   type Todo,
   type UpdateTodoRequest,
@@ -20,6 +21,11 @@ export class TacticaCoreClient {
 
   public constructor(axiosInstance: ApiAxiosInstance) {
     this.client = ApiClientBuilder.build(tacticaCoreContract, axiosInstance)
+  }
+
+  public readonly session = {
+    get: async (): Promise<SessionInfo | undefined> =>
+      extractGetByIdResponse(this.client.session.get()) as Promise<SessionInfo | undefined>,
   }
 
   public readonly todos = {

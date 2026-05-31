@@ -1,4 +1,4 @@
-import { getSessionUserId, requireSession } from '@tactica/fastify-utils'
+import { getSessionUserId } from '@tactica/fastify-utils'
 import { tacticaCoreContract, type Todo } from '@tactica/tactica-core-contract'
 import { initServer } from '@ts-rest/fastify'
 import type { FastifyInstance } from 'fastify'
@@ -48,13 +48,6 @@ export const registerTodoRoutes = async (app: FastifyInstance): Promise<void> =>
       await repo.delete(userId, params.id)
       return { status: 204, body: undefined }
     },
-  })
-
-  // Auth: gate every /tactica-core/todos request with requireSession via a Fastify preHandler hook
-  app.addHook('preHandler', async (req, reply) => {
-    if (req.url.startsWith('/tactica-core/todos')) {
-      await requireSession(req, reply)
-    }
   })
 
   await app.register(s.plugin(router))
