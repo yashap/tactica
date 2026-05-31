@@ -2,6 +2,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import * as authApi from './authApi'
 import { setAuthLostHandler } from './authEvents'
+import { tokenStorage } from './tokenStorage'
 
 export interface AuthState {
   status: 'initializing' | 'logged-out' | 'logged-in'
@@ -34,8 +35,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const queryClient = useQueryClient()
 
   // Flip to logged-out and wipe any cached per-user data. Used by both `signOut` (intentional)
-  // and the axios refresh-failure path (unrecoverable 401 mid-session).
+  // and the axios refresh-failure path (unrecoverable 401 mid-session). The token-storage
+  // clear is fire-and-forget — UI doesn't need to wait, and the next successful auth call will
+  // overwrite anyway.
   const clearSessionLocally = useCallback((): void => {
+    void tokenStorage.clear()
     queryClient.clear()
     setState({ status: 'logged-out' })
   }, [queryClient])
