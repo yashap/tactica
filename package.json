@@ -25,6 +25,7 @@
     "serve:tactica:android": "pnpm --filter @tactica/tactica-app android",
     "sync": "pnpm install && pnpm db:migrate-up && pnpm db:migrate-up:test",
     "test": "turbo run test",
+    "test:e2e:mobile": "pnpm --filter @tactica/e2e-tests-mobile test:e2e:mobile",
     "test:e2e:web": "pnpm --filter @tactica/e2e-tests-web test:e2e",
     "test:force": "turbo run test --force"
   },

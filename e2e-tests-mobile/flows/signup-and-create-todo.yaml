@@ -1,0 +1,46 @@
+# Expo Go bundle id on iOS; for Android use 'host.exp.exponent'. Switch to our own bundle id
+# when we move from Expo Go to a dev build.
+appId: host.exp.Exponent
+---
+# Build a unique email so each run is self-isolating and doesn't pollute dev data.
+- evalScript: ${output.email = `tactica-mobile-e2e-${Date.now()}-${Math.floor(Math.random() * 1e6)}@example.com`}
+
+- launchApp
+- assertVisible:
+    id: 'logInScreen'
+
+# Navigate to signup
+- tapOn:
+    id: 'goToSignUp'
+- assertVisible:
+    id: 'signUpScreen'
+
+# Sign up
+- tapOn:
+    id: 'signUpEmailInput'
+- inputText: ${output.email}
+- tapOn:
+    id: 'signUpPasswordInput'
+- inputText: 'StrongPassword123!'
+- tapOn:
+    id: 'submitSignUp'
+
+# Land on the todos screen with an empty state
+- assertVisible:
+    id: 'todosScreen'
+- assertVisible:
+    id: 'emptyState'
+
+# Create a todo and assert it shows up
+- tapOn:
+    id: 'newTodoInput'
+- inputText: 'Learn the Sicilian Defense'
+- tapOn:
+    id: 'addTodoButton'
+- assertVisible: 'Learn the Sicilian Defense'
+
+# Delete the todo we just created (keeps test residue minimal)
+- tapOn:
+    text: 'Delete'
+- assertVisible:
+    id: 'emptyState'

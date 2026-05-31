@@ -8,6 +8,6 @@
     "db:migrate-up": "pnpm db:up",
     "db:restore-fixtures": "pnpm db:clean && pnpm db:up && ../../tools/scripts/restore_fixtures.sh supertokens postgres://supertokens:supertokens_password@localhost:5432/supertokens?sslmode=disable && pnpm db:migrate-up",
     "db:up": "../../tools/scripts/ensure_postgres_db.sh -d supertokens -c tactica_postgres_dev && ../../tools/scripts/ensure_postgres_user.sh -u supertokens -w supertokens_password -d supertokens -c tactica_postgres_dev",
-    "serve": "docker rm -f supertokens 2>/dev/null; docker run --name supertokens -e POSTGRESQL_USER=\"supertokens\" -e POSTGRESQL_PASSWORD=\"supertokens_password\" -e POSTGRESQL_HOST=\"host.docker.internal\" -e POSTGRESQL_PORT=\"5440\" -e POSTGRESQL_DATABASE_NAME=\"supertokens\" -e LOG_LEVEL=\"${LOG_LEVEL:-WARN}\" -p 3567:3567 --rm registry.supertokens.io/supertokens/supertokens-postgresql:11.0.4"
+    "serve": "../../tools/scripts/serve_supertokens.sh"
   }
 }

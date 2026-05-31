@@ -1,0 +1,19 @@
+{
+  "name": "@tactica/e2e-tests-mobile",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "clean": "rm -rf node_modules/.cache .maestro .turbo",
+    "format": "eslint \"src/**/*.{ts,tsx}\" --fix",
+    "lint": "tsc --noEmit && eslint \"src/**/*.{ts,tsx}\"",
+    "test:e2e:mobile": "maestro test flows/"
+  },
+  "devDependencies": {
+    "@tactica/eslint-config": "workspace:*",
+    "@tactica/tsconfig": "workspace:*",
+    "@types/node": "^22.10.0",
+    "eslint": "^9.34.0",
+    "typescript": "^5.9.2"
+  }
+}

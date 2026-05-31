@@ -2,7 +2,7 @@
 
 Playwright tests that drive the Expo Web build through a real browser and verify the full stack: Expo app → Fastify `tactica-core` service → SuperTokens → Postgres.
 
-## Prerequisites: bring up the services yourself
+## Running the tests
 
 `pnpm test:e2e:web` does **not** start any services for you. Bring them up first - see the standard local dev flow in the [main README](../README.md).
 
@@ -11,7 +11,7 @@ Or more briefly:
 ```bash
 # From the repo root:
 
-# 1. After pulling: install deps + migrate DBs (idempotent)
+# 1. After pulling: install deps + migrate DBs
 pnpm sync
 
 # 2. Start the backends (tactica-core + SuperTokens core, in parallel via turbo)

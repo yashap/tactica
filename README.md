@@ -21,6 +21,7 @@ Monorepo for the **Tactica** AI chess coach app.
 - [nvm](https://github.com/nvm-sh/nvm)
   - For managing multiple node versions
   - Suggest setting up `nvm` to [auto-switch to the right node version on cd](https://github.com/nvm-sh/nvm#deeper-shell-integration)
+
 - [pnpm](https://pnpm.io/installation)
 
   ```bash
@@ -32,17 +33,29 @@ Monorepo for the **Tactica** AI chess coach app.
 
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/)
   - For your local platform, e.g. [Docker for Mac](https://docs.docker.com/desktop/install/mac-install/) for a Mac
+
 - [XCode](https://en.wikipedia.org/wiki/Xcode)
   - Ensure XCode is installed, with command line tools (necessary for running iOS Simulator)
   - Ensure you can open a simulated iPhone with Simulator, and it starts up properly
+
 - [cmake](https://cmake.org/)
   - On a Mac, `brew install cmake`
+
+- [Maestro CLI](https://maestro.mobile.dev/getting-started/installing-maestro) for e2e mobile tests. Install via Homebrew (recommended on macOS):
+
+  ```bash
+  brew install maestro
+  ```
+
 - Sync the workspace — installs pnpm deps, brings up the dev/test Postgres containers, and runs migrations against both:
+
   ```bash
   nvm use
   pnpm sync
   ```
-- If you intend to run the web E2E tests, also install the Playwright browsers (one-time, not part of `pnpm sync`):
+
+- Install the Playwright browsers for e2e web tests:
+
   ```bash
   pnpm --filter @tactica/e2e-tests-web exec playwright install
   ```

@@ -132,8 +132,30 @@ export const buildServerErrorFromDto = (dto: unknown, statusCode: number): Serve
       return new UnknownError(typedDto.message, statusCode, options)
     }
   }
-  return new UnknownError('Unexpected response from server', statusCode, {
+  return new UnknownError(`Unexpected response from server (${statusCode})${describeBody(dto)}`, statusCode, {
     cause: dto as unknown as Error,
     metadata: { response: { body: dto } },
   })
 }
+
+/**
+ * Extract a human-readable detail from an unrecognized response body so the fallback error message
+ * carries some signal (e.g. SuperTokens returns `"try refresh token"` or `{ message: "..." }` on a
+ * 401) instead of an opaque "Unexpected response from server". Returns a `: <detail>` suffix, or ''.
+ */
+const describeBody = (dto: unknown): string => {
+  if (dto === null || dto === undefined) return ''
+  if (typeof dto === 'string') return dto.length > 0 ? `: ${truncate(dto)}` : ''
+  if (typeof dto === 'object') {
+    const maybeMessage = (dto as { message?: unknown }).message
+    if (typeof maybeMessage === 'string' && maybeMessage.length > 0) return `: ${truncate(maybeMessage)}`
+    try {
+      return `: ${truncate(JSON.stringify(dto))}`
+    } catch {
+      return ''
+    }
+  }
+  return ''
+}
+
+const truncate = (value: string, max = 300): string => (value.length > max ? `${value.slice(0, max)}…` : value)
