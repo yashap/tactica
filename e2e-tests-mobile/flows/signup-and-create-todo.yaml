@@ -2,10 +2,16 @@
 # when we move from Expo Go to a dev build.
 appId: host.exp.Exponent
 ---
-# Build a unique email so each run is self-isolating and doesn't pollute dev data.
-- evalScript: ${output.email = `tactica-mobile-e2e-${Date.now()}-${Math.floor(Math.random() * 1e6)}@example.com`}
+# Open Expo Go with our dev-server URL so it loads our app directly instead of landing on the
+# project picker. The port matches `pnpm serve:tactica:ios` (--port 8082). Localhost works for
+# the iOS Simulator because it shares the host's network stack.
+- openLink: exp://127.0.0.1:8082
 
-- launchApp
+# Build a unique email so each run is self-isolating and doesn't pollute dev data. Avoid backtick
+# template literals — Maestro's own `${...}` preprocessor walks them recursively and breaks the
+# string. Plain string concatenation works fine in Maestro's GraalVM JS engine.
+- evalScript: ${output.email = 'tactica-mobile-e2e-' + Date.now() + '-' + Math.floor(Math.random() * 1e6) + '@example.com'}
+
 - assertVisible:
     id: 'logInScreen'
 
@@ -15,13 +21,14 @@ appId: host.exp.Exponent
 - assertVisible:
     id: 'signUpScreen'
 
-# Sign up
+# Sign up. Password kept to letters + digits to dodge any shift-key flakiness in Maestro's
+# iOS input synthesis.
 - tapOn:
     id: 'signUpEmailInput'
 - inputText: ${output.email}
 - tapOn:
     id: 'signUpPasswordInput'
-- inputText: 'StrongPassword123!'
+- inputText: 'StrongPassword123'
 - tapOn:
     id: 'submitSignUp'
 
@@ -39,8 +46,13 @@ appId: host.exp.Exponent
     id: 'addTodoButton'
 - assertVisible: 'Learn the Sicilian Defense'
 
-# Delete the todo we just created (keeps test residue minimal)
+# Dismiss the keyboard so it doesn't intercept the next tap (iOS's Delete/backspace key would
+# otherwise be a candidate match for `text: 'Delete'`, and even with id-based targeting the
+# keyboard can occlude the delete button area on smaller Simulators).
+- hideKeyboard
+
+# Delete the todo we just created and assert we're back on the empty state
 - tapOn:
-    text: 'Delete'
+    id: 'deleteTodo-.*'
 - assertVisible:
     id: 'emptyState'

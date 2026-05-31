@@ -49,6 +49,9 @@ const LogInScreen: React.FC = () => {
         style={styles.input}
         placeholder="Password"
         secureTextEntry
+        // Weird hack to prevent iOS from covering up the password, which breaks Maestro's input
+        textContentType="oneTimeCode"
+        autoComplete="off"
         value={password}
         onChangeText={setPassword}
       />
