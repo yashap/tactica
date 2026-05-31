@@ -13,7 +13,7 @@ const checkReachable = async (label: string, url: string): Promise<void> => {
   } catch (error) {
     throw new Error(
       `[e2e] ${label} is not reachable at ${url}. Make sure you started it manually before running the e2e tests. ` +
-        `See e2e-tests/README.md for the prerequisite commands. Underlying error: ${(error as Error).message}`,
+        `See e2e-tests-web/README.md for the prerequisite commands. Underlying error: ${(error as Error).message}`,
     )
   }
 }

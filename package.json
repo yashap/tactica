@@ -20,10 +20,13 @@
     "format": "prettier --write . && turbo run format",
     "lint": "prettier --check . && turbo run lint",
     "serve:backend": "turbo run serve --filter=@tactica/tactica-core",
-    "serve:tactica-app": "pnpm --filter @tactica/tactica-app serve",
+    "serve:tactica": "pnpm --filter @tactica/tactica-app serve",
+    "serve:tactica:web": "pnpm --filter @tactica/tactica-app web",
+    "serve:tactica:ios": "pnpm --filter @tactica/tactica-app ios",
+    "serve:tactica:android": "pnpm --filter @tactica/tactica-app android",
     "sync": "pnpm install && pnpm db:migrate-up && pnpm db:migrate-up:test",
     "test": "turbo run test",
-    "test:e2e": "pnpm --filter @tactica/e2e-tests test:e2e",
+    "test:e2e:web": "pnpm --filter @tactica/e2e-tests-web test:e2e",
     "test:force": "turbo run test --force"
   },
   "devDependencies": {

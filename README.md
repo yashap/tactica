@@ -44,36 +44,39 @@ Monorepo for the **Tactica** AI chess coach app.
   ```
 - If you intend to run the web E2E tests, also install the Playwright browsers (one-time, not part of `pnpm sync`):
   ```bash
-  pnpm --filter @tactica/e2e-tests exec playwright install
+  pnpm --filter @tactica/e2e-tests-web exec playwright install
   ```
 
 ### Local dev environment
 
-In separate terminals:
-
 ```bash
-# Terminal 1: serve all backends (tactica-core + SuperTokens core, in parallel via turbo)
+# Install pnpm deps + ensure DB up + run migrations (dev & test)
+pnpm sync
+
+# In own terminal: serve all backends (tactica-core + SuperTokens core, in parallel via turbo)
 pnpm serve:backend
 
-# Terminal 2: the Expo app (web, iOS, Android — pick one)
-pnpm --filter @tactica/tactica-app web
-pnpm --filter @tactica/tactica-app ios
-pnpm --filter @tactica/tactica-app android
+# In own terminal: the Expo app (web, iOS, Android — pick one)
+pnpm serve:tactica:web
+pnpm serve:tactica:ios
+pnpm serve:tactica:android
 ```
 
 ### Common workflows
 
+Very common:
+
 ```bash
-pnpm sync                # Install pnpm deps + run migrations (dev & test). Idempotent.
-pnpm install             # Just install pnpm deps
+pnpm sync                # Install pnpm deps + ensure DB up + run migrations (dev & test)
 pnpm lint                # Prettier check + typechecking + ESLint
 pnpm format              # Prettier write + ESLint --fix
-pnpm build               # Compile every package to dist/
-pnpm build:force         # Same as build, bypassing the turbo cache
 pnpm test                # Vitest unit + backend integration tests (no E2E)
-pnpm test:force          # Same as test, bypassing the turbo cache
-pnpm test:e2e            # Playwright E2E (assumes services are running — see below)
-pnpm db:migrate-up       # Ensure dev Postgres is up, run migrations
+pnpm test:e2e:web        # Playwright E2E against the Expo web build (assumes backends and web frontend are running — see below)
+```
+
+Less common:
+
+```bash
 pnpm db:dump-fixtures    # Per-backend: dump current DB to fixtures.sql
 pnpm db:restore-fixtures # Per-backend: drop + re-create DB, replay fixtures.sql, migrate
 pnpm db:clean            # Tear down Postgres containers + volumes
@@ -81,7 +84,7 @@ pnpm db:clean            # Tear down Postgres containers + volumes
 
 ## Running E2E tests
 
-For web E2E tests, see [the E2E README](./e2e-tests/README.md).
+For web E2E tests, see [the E2E README](./e2e-tests-web/README.md).
 
 ## The no-compile workspace deps story
 

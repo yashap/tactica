@@ -1,10 +1,10 @@
-# Tactica E2E Tests
+# Tactica Web E2E Tests
 
 Playwright tests that drive the Expo Web build through a real browser and verify the full stack: Expo app → Fastify `tactica-core` service → SuperTokens → Postgres.
 
 ## Prerequisites: bring up the services yourself
 
-`pnpm test:e2e` does **not** start any services for you. Bring them up first - see the standard local dev flow in the [main README](../README.md).
+`pnpm test:e2e:web` does **not** start any services for you. Bring them up first - see the standard local dev flow in the [main README](../README.md).
 
 Or more briefly:
 
@@ -18,10 +18,10 @@ pnpm sync
 pnpm serve:backend
 
 # 3. Start the Expo web build (Metro)
-pnpm --filter @tactica/tactica-app web
+pnpm serve:tactica:web
 
 # 4. Once both terminals are running, run the E2E tests:
-pnpm test:e2e
+pnpm test:e2e:web
 ```
 
 ## State cleanup
