@@ -20,7 +20,6 @@
     "format": "prettier --write . && turbo run format",
     "lint": "prettier --check . && turbo run lint",
     "serve:backend": "turbo run serve --filter=@tactica/tactica-core",
-    "serve:tactica": "pnpm --filter @tactica/tactica-app serve",
     "serve:tactica:web": "pnpm --filter @tactica/tactica-app web",
     "serve:tactica:ios": "pnpm --filter @tactica/tactica-app ios",
     "serve:tactica:android": "pnpm --filter @tactica/tactica-app android",
