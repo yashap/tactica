@@ -21,8 +21,7 @@
     "build": "tsc -p tsconfig.build.json",
     "clean": "rm -rf dist .turbo",
     "format": "prettier --write \"src/**/*.{ts,tsx}\"",
-    "lint": "eslint \"src/**/*.{ts,tsx}\"",
-    "typecheck": "tsc --noEmit"
+    "lint": "tsc --noEmit && eslint \"src/**/*.{ts,tsx}\""
   },
   "dependencies": {
     "@tactica/api-client-utils": "workspace:*",

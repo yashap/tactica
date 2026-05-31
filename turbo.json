@@ -39,10 +39,6 @@
     },
     "test": {
       "outputs": []
-    },
-    "typecheck": {
-      "outputs": [],
-      "dependsOn": []
     }
   }
 }

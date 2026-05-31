@@ -21,9 +21,8 @@
     "build": "tsc -p tsconfig.build.json",
     "clean": "rm -rf dist .turbo",
     "format": "prettier --write \"src/**/*.{ts,tsx}\"",
-    "lint": "eslint \"src/**/*.{ts,tsx}\"",
-    "test": "vitest run --passWithNoTests",
-    "typecheck": "tsc --noEmit"
+    "lint": "tsc --noEmit && eslint \"src/**/*.{ts,tsx}\"",
+    "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
     "@js-temporal/polyfill": "^0.5.1",

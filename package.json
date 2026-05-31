@@ -19,8 +19,7 @@
     "format": "prettier --write . && turbo run format",
     "lint": "prettier --check . && turbo run lint",
     "test": "turbo run test",
-    "test:e2e": "pnpm --filter @tactica/e2e-tests test:e2e",
-    "typecheck": "turbo run typecheck"
+    "test:e2e": "pnpm --filter @tactica/e2e-tests test:e2e"
   },
   "devDependencies": {
     "prettier": "^3.6.2",

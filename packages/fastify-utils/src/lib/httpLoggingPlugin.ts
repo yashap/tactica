@@ -1,4 +1,4 @@
-import { getLogger, Logger } from '@tactica/logging'
+import { getLogger, type Logger } from '@tactica/logging'
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import fp from 'fastify-plugin'
 
@@ -24,7 +24,6 @@ const formatDurationMs = (start: bigint): number => Number(process.hrtime.bigint
  * milliseconds. Modeled after the structured payloads parker emits via `@parker/logging`.
  */
 export const httpLoggingPlugin = fp<HttpLoggingPluginOptions>(
-  // eslint-disable-next-line @typescript-eslint/require-await
   async (fastify: FastifyInstance, opts: HttpLoggingPluginOptions) => {
     const logger = opts.logger ?? getLogger().child('http')
 

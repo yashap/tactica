@@ -18,7 +18,6 @@ declare module 'fastify' {
  * automatically carries the same correlation ID.
  */
 export const correlationIdPlugin = fp(
-  // eslint-disable-next-line @typescript-eslint/require-await
   async (fastify: FastifyInstance) => {
     fastify.addHook('onRequest', async (request, reply) => {
       const inbound = request.headers[CORRELATION_ID_HEADER]

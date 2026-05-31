@@ -71,9 +71,8 @@ pnpm --filter @tactica/tactica-app android
 
 ```bash
 pnpm install         # Install all dependencies managed via pnpm
-pnpm typecheck       # TypeScript across everything
-pnpm lint            # Prettier check + ESLint
-pnpm format          # Prettier write + ESLint --fix
+pnpm lint            # Prettier check + typechecking + ESLint
+pnpm format          # Prettier write
 pnpm build           # Compile every package to dist/
 pnpm test            # Vitest unit + backend integration tests (no E2E)
 pnpm test:e2e        # Playwright E2E (assumes services are running — see below)
