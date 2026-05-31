@@ -9,7 +9,7 @@ if [ "$migration_name" = '' ]; then
     exit 1
 fi
 
-generate_output=$(yarn drizzle-kit generate --name="$migration_name")
+generate_output=$(drizzle-kit generate --name="$migration_name")
 
 # This saving of the output and removing bad quoting is a hack around a Drizzle bug when generating migrations, that over-quotes
 # Can remove this hack once the Drizzle bug is fixed

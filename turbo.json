@@ -20,10 +20,16 @@
     "clean": {
       "cache": false
     },
+    "db:dump-fixtures": {
+      "cache": false
+    },
     "db:migrate-up": {
       "cache": false
     },
     "db:migrate-up:test": {
+      "cache": false
+    },
+    "db:restore-fixtures": {
       "cache": false
     },
     "format": {

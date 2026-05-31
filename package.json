@@ -8,18 +8,23 @@
   },
   "scripts": {
     "build": "turbo run build",
+    "build:force": "turbo run build --force",
     "clean": "pnpm db:clean && turbo run clean && rm -rf node_modules",
     "db:up": "./tools/scripts/ensure_postgres_up.sh -c tactica_postgres_dev -v tactica_postgres_data_dev",
     "db:up:test": "./tools/scripts/ensure_postgres_up.sh -p 5441 -c tactica_postgres_test -v tactica_postgres_data_test",
     "db:clean": "docker rm -f -v tactica_postgres_dev tactica_postgres_test 2>/dev/null; docker volume rm -f tactica_postgres_data_dev tactica_postgres_data_test 2>/dev/null; exit 0",
+    "db:dump-fixtures": "turbo run db:dump-fixtures",
     "db:migrate-up": "pnpm db:up && turbo run db:migrate-up",
     "db:migrate-up:test": "pnpm db:up:test && turbo run db:migrate-up:test",
-    "serve:backend": "turbo run serve --filter='./backends/*' --parallel",
-    "serve:tactica-app": "pnpm --filter @tactica/tactica-app serve",
+    "db:restore-fixtures": "turbo run db:restore-fixtures",
     "format": "prettier --write . && turbo run format",
     "lint": "prettier --check . && turbo run lint",
+    "serve:backend": "turbo run serve --filter=@tactica/tactica-core",
+    "serve:tactica-app": "pnpm --filter @tactica/tactica-app serve",
+    "sync": "pnpm install && pnpm db:migrate-up && pnpm db:migrate-up:test",
     "test": "turbo run test",
-    "test:e2e": "pnpm --filter @tactica/e2e-tests test:e2e"
+    "test:e2e": "pnpm --filter @tactica/e2e-tests test:e2e",
+    "test:force": "turbo run test --force"
   },
   "devDependencies": {
     "prettier": "^3.6.2",

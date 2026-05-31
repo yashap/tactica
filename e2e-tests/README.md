@@ -4,24 +4,23 @@ Playwright tests that drive the Expo Web build through a real browser and verify
 
 ## Prerequisites: bring up the services yourself
 
-`pnpm test:e2e` does **not** start any services for you. Bring them up first, in separate terminals (or backgrounded):
+`pnpm test:e2e` does **not** start any services for you. Bring them up first - see the standard local dev flow in the [main README](../README.md).
+
+Or more briefly:
 
 ```bash
 # From the repo root:
 
-# 1. Start the dev Postgres + create per-service DBs/users
-pnpm db:migrate-up
+# 1. After pulling: install deps + migrate DBs (idempotent)
+pnpm sync
 
-# 2. Start the SuperTokens core (foreground; runs in Docker)
-pnpm --filter @tactica/supertokens serve
+# 2. Start the backends (tactica-core + SuperTokens core, in parallel via turbo)
+pnpm serve:backend
 
-# 3. Start the tactica-core service (foreground; tsx watch)
-pnpm --filter @tactica/tactica-core serve
-
-# 4. Start the Expo web build (foreground; Metro)
+# 3. Start the Expo web build (Metro)
 pnpm --filter @tactica/tactica-app web
 
-# 5. Once all four are running, run the E2E tests:
+# 4. Once both terminals are running, run the E2E tests:
 pnpm test:e2e
 ```
 

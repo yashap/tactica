@@ -30,11 +30,6 @@ Monorepo for the **Tactica** AI chess coach app.
 
   - If you run `which pnpm`, it should show something like `~/.nvm/versions/node/<node_version>/bin/pnpm`
 
-- Install pnpm deps
-  ```bash
-  nvm use
-  pnpm install
-  ```
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/)
   - For your local platform, e.g. [Docker for Mac](https://docs.docker.com/desktop/install/mac-install/) for a Mac
 - [XCode](https://en.wikipedia.org/wiki/Xcode)
@@ -42,7 +37,12 @@ Monorepo for the **Tactica** AI chess coach app.
   - Ensure you can open a simulated iPhone with Simulator, and it starts up properly
 - [cmake](https://cmake.org/)
   - On a Mac, `brew install cmake`
-- Install default browsers for E2E tests
+- Sync the workspace — installs pnpm deps, brings up the dev/test Postgres containers, and runs migrations against both:
+  ```bash
+  nvm use
+  pnpm sync
+  ```
+- If you intend to run the web E2E tests, also install the Playwright browsers (one-time, not part of `pnpm sync`):
   ```bash
   pnpm --filter @tactica/e2e-tests exec playwright install
   ```
@@ -52,16 +52,10 @@ Monorepo for the **Tactica** AI chess coach app.
 In separate terminals:
 
 ```bash
-# Terminal 1: bring up Postgres + apply migrations
-pnpm db:migrate-up
+# Terminal 1: serve all backends (tactica-core + SuperTokens core, in parallel via turbo)
+pnpm serve:backend
 
-# Terminal 2: SuperTokens core (runs in Docker)
-pnpm --filter @tactica/supertokens serve
-
-# Terminal 3: the Fastify service
-pnpm --filter @tactica/tactica-core serve
-
-# Terminal 4: the Expo app (web, iOS, Android — pick one)
+# Terminal 2: the Expo app (web, iOS, Android — pick one)
 pnpm --filter @tactica/tactica-app web
 pnpm --filter @tactica/tactica-app ios
 pnpm --filter @tactica/tactica-app android
@@ -70,14 +64,19 @@ pnpm --filter @tactica/tactica-app android
 ### Common workflows
 
 ```bash
-pnpm install         # Install all dependencies managed via pnpm
-pnpm lint            # Prettier check + typechecking + ESLint
-pnpm format          # Prettier write + ESLint --fix
-pnpm build           # Compile every package to dist/
-pnpm test            # Vitest unit + backend integration tests (no E2E)
-pnpm test:e2e        # Playwright E2E (assumes services are running — see below)
-pnpm db:migrate-up   # Ensure dev Postgres is up, run migrations
-pnpm db:clean        # Tear down Postgres containers + volumes
+pnpm sync                # Install pnpm deps + run migrations (dev & test). Idempotent.
+pnpm install             # Just install pnpm deps
+pnpm lint                # Prettier check + typechecking + ESLint
+pnpm format              # Prettier write + ESLint --fix
+pnpm build               # Compile every package to dist/
+pnpm build:force         # Same as build, bypassing the turbo cache
+pnpm test                # Vitest unit + backend integration tests (no E2E)
+pnpm test:force          # Same as test, bypassing the turbo cache
+pnpm test:e2e            # Playwright E2E (assumes services are running — see below)
+pnpm db:migrate-up       # Ensure dev Postgres is up, run migrations
+pnpm db:dump-fixtures    # Per-backend: dump current DB to fixtures.sql
+pnpm db:restore-fixtures # Per-backend: drop + re-create DB, replay fixtures.sql, migrate
+pnpm db:clean            # Tear down Postgres containers + volumes
 ```
 
 ## Running E2E tests

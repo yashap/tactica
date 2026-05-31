@@ -9,4 +9,4 @@ if [ "$migration_name" = '' ]; then
     exit 1
 fi
 
-yarn drizzle-kit generate --custom --name="$migration_name"
+drizzle-kit generate --custom --name="$migration_name"
