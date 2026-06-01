@@ -12,7 +12,7 @@ const Index: React.FC = () => {
       </View>
     )
   }
-  if (state.status === 'logged-in') return <Redirect href="/todos" />
+  if (state.status === 'logged-in') return <Redirect href="/play" />
   return <Redirect href="/logIn" />
 }
 

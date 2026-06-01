@@ -1,4 +1,4 @@
-import { Link, router } from 'expo-router'
+import { router } from 'expo-router'
 import React, { useState } from 'react'
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import { useAuth } from '../../auth/AuthContext'
@@ -16,7 +16,7 @@ const SignUpScreen: React.FC = () => {
     try {
       const result = await signUp(email, password)
       if (result.status === 'OK') {
-        router.replace('/todos')
+        router.replace('/play')
       } else if (result.status === 'EMAIL_ALREADY_EXISTS_ERROR') {
         setError('An account with that email already exists')
       } else if (result.formFields?.[0]) {
@@ -63,9 +63,9 @@ const SignUpScreen: React.FC = () => {
       <Pressable testID="submitSignUp" style={styles.button} onPress={() => void onSubmit()} disabled={submitting}>
         <Text style={styles.buttonText}>{submitting ? 'Signing up...' : 'Sign up'}</Text>
       </Pressable>
-      <Link testID="goToLogIn" href="/logIn" style={styles.link}>
-        Already have an account? Log in
-      </Link>
+      <Pressable testID="goToLogIn" onPress={() => router.push('/logIn')} style={styles.linkButton}>
+        <Text style={styles.link}>Already have an account? Log in</Text>
+      </Pressable>
     </View>
   )
 }
@@ -77,7 +77,8 @@ const styles = StyleSheet.create({
   button: { backgroundColor: '#1f6feb', padding: 14, borderRadius: 6, alignItems: 'center', marginTop: 8 },
   buttonText: { color: 'white', fontSize: 16, fontWeight: '600' },
   error: { color: 'red' },
-  link: { color: '#1f6feb', marginTop: 12, textAlign: 'center' },
+  linkButton: { marginTop: 12, alignItems: 'center', padding: 8 },
+  link: { color: '#1f6feb', textAlign: 'center' },
 })
 
 export default SignUpScreen

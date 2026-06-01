@@ -1,0 +1,64 @@
+# Expo Go bundle id on iOS; for Android use 'host.exp.exponent'. Switch to our own bundle id
+# when we move from Expo Go to a dev build.
+appId: host.exp.Exponent
+---
+# Wipe Expo Go's storage (which holds our app's AsyncStorage, including SuperTokens session
+# tokens) so each run starts from the logged-out state regardless of what the previous run left.
+- clearState
+
+# Open Expo Go with our dev-server URL, deep-linking straight to /signUp via the `--/<route>`
+# syntax. Bypasses the log-in screen entirely so we don't have to tap a Pressable on the auth
+# screen (which fires unreliably from Maestro on iOS Bridgeless mode).
+- openLink: exp://127.0.0.1:8082/--/signUp
+
+# Build a unique email so each run is self-isolating and doesn't pollute dev data. Avoid backtick
+# template literals — Maestro's own `${...}` preprocessor walks them recursively and breaks the
+# string. Plain string concatenation works fine in Maestro's GraalVM JS engine.
+- evalScript: ${output.email = 'tactica-mobile-e2e-' + Date.now() + '-' + Math.floor(Math.random() * 1e6) + '@example.com'}
+
+- assertVisible:
+    id: 'signUpScreen'
+
+# Sign up. Password kept to letters + digits to dodge any shift-key flakiness in Maestro's
+# iOS input synthesis.
+#
+# iOS Simulator quirk: the very first tap on a TextInput after a screen mount often gets
+# absorbed bringing up the keyboard rather than focusing the field, so the immediately-following
+# inputText goes nowhere. We tap the email field TWICE so the second tap is the one that
+# actually focuses — once the keyboard is up, subsequent fields focus on a single tap.
+- tapOn:
+    id: 'signUpEmailInput'
+- tapOn:
+    id: 'signUpEmailInput'
+- inputText: ${output.email}
+- tapOn:
+    id: 'signUpPasswordInput'
+- inputText: 'StrongPassword123'
+- tapOn:
+    id: 'submitSignUp'
+
+# Land on the play screen with the chess board in the initial position
+- assertVisible:
+    id: 'playScreen'
+- assertVisible:
+    id: 'chessBoard'
+- assertVisible:
+    id: 'piece-wP-e2'
+
+# Make the move: tap e2 (selects), tap e4 (commits)
+- tapOn:
+    id: 'square-e2'
+- tapOn:
+    id: 'square-e4'
+
+# Pawn now on e4, summary shows the SAN
+- assertVisible:
+    id: 'piece-wP-e4'
+- assertVisible:
+    id: 'moveSummary'
+
+# Board is frozen — d2 pawn is still in place and d4 still empty
+- assertVisible:
+    id: 'piece-wP-d2'
+- assertNotVisible:
+    id: 'piece-wP-d4'
