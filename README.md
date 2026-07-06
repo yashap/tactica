@@ -90,6 +90,7 @@ pnpm db:clean
 ```
 
 Note also, more details about E2E tests in their READMEs:
+
 - For web E2E tests, see [the web E2E README](./e2e-tests-web/README.md)
 - For mobile E2E tests, see [the mobile E2E README](./e2e-tests-mobile/README.md)
 
