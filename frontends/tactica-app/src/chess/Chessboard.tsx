@@ -81,9 +81,7 @@ export const Chessboard: React.FC<ChessboardProps> = ({ onMove }) => {
                     piece={cell?.code ?? null}
                     isSelected={game.selectedSquare === sq}
                     isLegalDestination={game.legalDestinations.includes(sq)}
-                    checkState={
-                      game.checkedKingSquare === sq ? (game.isCheckmate ? 'checkmate' : 'check') : null
-                    }
+                    checkState={game.checkedKingSquare === sq ? (game.isCheckmate ? 'checkmate' : 'check') : null}
                     onPress={handlePress}
                   />
                 )

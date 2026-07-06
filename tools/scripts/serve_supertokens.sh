@@ -16,6 +16,7 @@ trap cleanup EXIT INT TERM
 cleanup
 
 docker run --name "$container_name" \
+  --add-host=host.docker.internal:host-gateway \
   -e POSTGRESQL_USER="supertokens" \
   -e POSTGRESQL_PASSWORD="supertokens_password" \
   -e POSTGRESQL_HOST="host.docker.internal" \

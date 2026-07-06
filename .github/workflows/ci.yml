@@ -1,0 +1,135 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# One run per PR (or branch) at a time; a new push cancels the superseded run
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4 # reads the version from package.json's packageManager field
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Restore turbo cache
+        uses: actions/cache@v4
+        with:
+          path: .turbo/cache
+          key: turbo-lint-${{ runner.os }}-${{ github.sha }}
+          restore-keys: turbo-lint-${{ runner.os }}-
+      - run: pnpm lint
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Restore turbo cache
+        uses: actions/cache@v4
+        with:
+          path: .turbo/cache
+          key: turbo-test-${{ runner.os }}-${{ github.sha }}
+          restore-keys: turbo-test-${{ runner.os }}-
+      - name: Start test Postgres and run migrations
+        run: pnpm db:migrate-up:test
+      - run: pnpm test
+
+  e2e-web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CI: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Restore Playwright browser cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+      - name: Install Playwright browsers
+        run: pnpm --filter @tactica/e2e-tests-web exec playwright install --with-deps
+
+      - name: Start dev Postgres and run migrations
+        run: pnpm db:migrate-up
+
+      - name: Start backends — tactica-core (3501) and SuperTokens (3567)
+        # serve:backend runs both serve tasks via turbo (supertokens is in tactica-core's task graph)
+        run: nohup pnpm serve:backend > /tmp/backends.log 2>&1 &
+
+      - name: Start Expo web (8081)
+        run: nohup pnpm serve:tactica:web > /tmp/expo-web.log 2>&1 &
+        env:
+          EXPO_NO_TELEMETRY: '1'
+          BROWSER: none
+
+      - name: Wait for services
+        run: |
+          # Any HTTP response counts as ready (tactica-core 404s on /, like the e2e
+          # preflight fixture, curl only fails when it can't connect at all)
+          wait_for() {
+            local name="$1" url="$2" tries="$3"
+            for i in $(seq 1 "$tries"); do
+              if curl -s -o /dev/null "$url"; then
+                echo "$name is up"
+                return 0
+              fi
+              sleep 2
+            done
+            echo "::error::$name never became ready at $url"
+            return 1
+          }
+          wait_for "SuperTokens" "http://localhost:3567/hello" 60
+          wait_for "tactica-core" "http://localhost:3501" 45
+          wait_for "Expo web" "http://localhost:8081" 150
+
+      - name: Warm Metro bundle
+        run: |
+          # Metro compiles the JS bundle lazily on first request; trigger it now so the first
+          # Playwright navigation doesn't spend its timeout waiting on the compile.
+          BUNDLE=$(curl -s http://localhost:8081 | grep -oE '/[^"]+\.bundle[^"]*' | head -1 | sed 's/&amp;/\&/g' || true)
+          if [ -n "$BUNDLE" ]; then
+            curl -sf --max-time 300 -o /dev/null "http://localhost:8081$BUNDLE" || true
+          fi
+
+      - name: Run web e2e tests
+        run: pnpm test:e2e:web
+
+      - name: Dump service logs on failure
+        if: failure()
+        run: |
+          for f in /tmp/backends.log /tmp/expo-web.log; do
+            echo "===== $f ====="
+            tail -200 "$f" || true
+          done
+          docker ps -a
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            e2e-tests-web/playwright-report
+            e2e-tests-web/test-results
+          retention-days: 7
