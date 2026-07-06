@@ -2,6 +2,7 @@ import { router } from 'expo-router'
 import React, { useState } from 'react'
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import { useAuth } from '../../auth/AuthContext'
+import { AscentLogo } from '../../branding/AscentLogo'
 
 const SignUpScreen: React.FC = () => {
   const { signUp } = useAuth()
@@ -33,7 +34,11 @@ const SignUpScreen: React.FC = () => {
 
   return (
     <View style={styles.container} testID="signUpScreen">
-      <Text style={styles.title}>Sign up</Text>
+      <View style={styles.logo}>
+        <AscentLogo size={52} />
+        <Text style={styles.welcome}>Create your account</Text>
+        <Text style={styles.welcomeSub}>Sign up and start improving</Text>
+      </View>
       <TextInput
         testID="signUpEmailInput"
         style={styles.input}
@@ -71,8 +76,10 @@ const SignUpScreen: React.FC = () => {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 24, gap: 12 },
-  title: { fontSize: 28, fontWeight: '600', marginBottom: 8 },
+  container: { flex: 1, padding: 24, gap: 12, width: '100%', maxWidth: 480, alignSelf: 'center' },
+  logo: { alignItems: 'center', gap: 8, marginTop: 8, marginBottom: 12 },
+  welcome: { fontSize: 22, fontWeight: '700', marginTop: 4 },
+  welcomeSub: { fontSize: 14, color: '#6E675D' },
   input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 6, padding: 12, fontSize: 16 },
   button: { backgroundColor: '#1f6feb', padding: 14, borderRadius: 6, alignItems: 'center', marginTop: 8 },
   buttonText: { color: 'white', fontSize: 16, fontWeight: '600' },

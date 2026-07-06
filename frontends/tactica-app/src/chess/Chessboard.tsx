@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react'
 import { type LayoutChangeEvent, StyleSheet, Text, View } from 'react-native'
+import { CapturedPieces } from './CapturedPieces'
 import { Square } from './Square'
 import { type Square as SquareName, useChessGame } from './useChessGame'
 
@@ -41,12 +42,18 @@ export const Chessboard: React.FC<ChessboardProps> = ({ onMove }) => {
 
   const squareSize = Math.floor(boardSize / 8)
   const labelGutter = Math.max(12, Math.floor(squareSize * 0.3))
+  const boardRowWidth = squareSize * 8 + labelGutter
+  const capturedPieceSize = Math.max(20, Math.floor(squareSize * 0.55))
 
   return (
     <View style={styles.container} onLayout={onContainerLayout}>
+      {/* Black's side of the board — the white pieces black has captured */}
+      <View style={{ width: boardRowWidth, paddingLeft: labelGutter, marginBottom: 4 }}>
+        <CapturedPieces pieces={game.capturedByBlack} size={capturedPieceSize} testID="capturedByBlack" />
+      </View>
       <View
         style={{
-          width: squareSize * 8 + labelGutter,
+          width: boardRowWidth,
           flexDirection: 'row',
         }}
         testID="chessBoard"
@@ -74,7 +81,9 @@ export const Chessboard: React.FC<ChessboardProps> = ({ onMove }) => {
                     piece={cell?.code ?? null}
                     isSelected={game.selectedSquare === sq}
                     isLegalDestination={game.legalDestinations.includes(sq)}
-                    disabled={game.frozen}
+                    checkState={
+                      game.checkedKingSquare === sq ? (game.isCheckmate ? 'checkmate' : 'check') : null
+                    }
                     onPress={handlePress}
                   />
                 )
@@ -91,9 +100,16 @@ export const Chessboard: React.FC<ChessboardProps> = ({ onMove }) => {
           </View>
         </View>
       </View>
-      {game.frozen && game.lastMoveSan && (
+      {/* White's side of the board — the black pieces white has captured */}
+      <View style={{ width: boardRowWidth, paddingLeft: labelGutter, marginTop: 4 }}>
+        <CapturedPieces pieces={game.capturedByWhite} size={capturedPieceSize} testID="capturedByWhite" />
+      </View>
+      <Text testID="turnIndicator" style={[styles.summary, (game.isCheck || game.gameOverText) && styles.alert]}>
+        {game.gameOverText ?? `${game.turn === 'w' ? 'White' : 'Black'} to move${game.isCheck ? ' — check!' : ''}`}
+      </Text>
+      {game.lastMoveSan && (
         <Text testID="moveSummary" style={styles.summary}>
-          Moved {game.lastMoveSan}. More coming soon!
+          Last move: {game.lastMoveSan}
         </Text>
       )}
     </View>
@@ -116,5 +132,9 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 16,
     color: '#333',
+  },
+  alert: {
+    color: '#c00000',
+    fontWeight: '600',
   },
 })
