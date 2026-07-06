@@ -1,4 +1,4 @@
-import { Link, router } from 'expo-router'
+import { router } from 'expo-router'
 import React, { useState } from 'react'
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import { useAuth } from '../../auth/AuthContext'
@@ -16,7 +16,7 @@ const LogInScreen: React.FC = () => {
     try {
       const result = await signIn(email, password)
       if (result.status === 'OK') {
-        router.replace('/todos')
+        router.replace('/play')
       } else if (result.status === 'WRONG_CREDENTIALS_ERROR') {
         setError('Wrong email or password')
       } else if (result.formFields?.[0]) {
@@ -63,9 +63,9 @@ const LogInScreen: React.FC = () => {
       <Pressable testID="submitLogIn" style={styles.button} onPress={() => void onSubmit()} disabled={submitting}>
         <Text style={styles.buttonText}>{submitting ? 'Logging in...' : 'Log in'}</Text>
       </Pressable>
-      <Link testID="goToSignUp" href="/signUp" style={styles.link}>
-        Don’t have an account? Sign up
-      </Link>
+      <Pressable testID="goToSignUp" onPress={() => router.push('/signUp')} style={styles.linkButton}>
+        <Text style={styles.link}>Don’t have an account? Sign up</Text>
+      </Pressable>
     </View>
   )
 }
@@ -77,7 +77,8 @@ const styles = StyleSheet.create({
   button: { backgroundColor: '#1f6feb', padding: 14, borderRadius: 6, alignItems: 'center', marginTop: 8 },
   buttonText: { color: 'white', fontSize: 16, fontWeight: '600' },
   error: { color: 'red' },
-  link: { color: '#1f6feb', marginTop: 12, textAlign: 'center' },
+  linkButton: { marginTop: 12, alignItems: 'center', padding: 8 },
+  link: { color: '#1f6feb', textAlign: 'center' },
 })
 
 export default LogInScreen

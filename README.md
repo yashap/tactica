@@ -60,7 +60,9 @@ Monorepo for the **Tactica** AI chess coach app.
   pnpm --filter @tactica/e2e-tests-web exec playwright install
   ```
 
-### Local dev environment
+### Common local dev workflows
+
+Very common:
 
 ```bash
 # Install pnpm deps + ensure DB up + run migrations (dev & test)
@@ -69,35 +71,39 @@ pnpm sync
 # In own terminal: serve all backends (tactica-core + SuperTokens core, in parallel via turbo)
 pnpm serve:backend
 
-# In own terminal: the Expo app (web, iOS, Android — pick one)
+# In own terminal: the Expo app (web, iOS, Android)
 pnpm serve:tactica:web
 pnpm serve:tactica:ios
 pnpm serve:tactica:android
-```
 
-### Common workflows
+# Lint (including typechecking) and format
+pnpm lint
+pnpm format
 
-Very common:
+# Vitest unit + backend integration tests (no E2E)
+pnpm test
 
-```bash
-pnpm sync                # Install pnpm deps + ensure DB up + run migrations (dev & test)
-pnpm lint                # Prettier check + typechecking + ESLint
-pnpm format              # Prettier write + ESLint --fix
-pnpm test                # Vitest unit + backend integration tests (no E2E)
-pnpm test:e2e:web        # Playwright E2E against the Expo web build (assumes backends and web frontend are running — see below)
+# E2E tests - backend and frontend must be separately running
+pnpm test:e2e:web
+pnpm test:e2e:mobile
 ```
 
 Less common:
 
 ```bash
-pnpm db:dump-fixtures    # Per-backend: dump current DB to fixtures.sql
-pnpm db:restore-fixtures # Per-backend: drop + re-create DB, replay fixtures.sql, migrate
-pnpm db:clean            # Tear down Postgres containers + volumes
+# Per-backend: dump current DB to fixtures.sql
+pnpm db:dump-fixtures
+
+# Per-backend: drop + re-create DB, replay fixtures.sql, migrate
+pnpm db:restore-fixtures
+
+# Tear down Postgres containers + volumes
+pnpm db:clean
 ```
 
-## Running E2E tests
-
-For web E2E tests, see [the E2E README](./e2e-tests-web/README.md).
+Note also, more details about E2E tests in their READMEs:
+- For web E2E tests, see [the web E2E README](./e2e-tests-web/README.md)
+- For mobile E2E tests, see [the mobile E2E README](./e2e-tests-mobile/README.md)
 
 ## The no-compile workspace deps story
 
