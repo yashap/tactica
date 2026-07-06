@@ -73,11 +73,9 @@ jobs:
       - name: Start dev Postgres and run migrations
         run: pnpm db:migrate-up
 
-      - name: Start SuperTokens core (3567)
-        run: nohup ./tools/scripts/serve_supertokens.sh > /tmp/supertokens.log 2>&1 &
-
-      - name: Start tactica-core (3501)
-        run: nohup pnpm serve:backend > /tmp/tactica-core.log 2>&1 &
+      - name: Start backends — tactica-core (3501) and SuperTokens (3567)
+        # serve:backend runs both serve tasks via turbo (supertokens is in tactica-core's task graph)
+        run: nohup pnpm serve:backend > /tmp/backends.log 2>&1 &
 
       - name: Start Expo web (8081)
         run: nohup pnpm serve:tactica:web > /tmp/expo-web.log 2>&1 &
@@ -120,7 +118,7 @@ jobs:
       - name: Dump service logs on failure
         if: failure()
         run: |
-          for f in /tmp/supertokens.log /tmp/tactica-core.log /tmp/expo-web.log; do
+          for f in /tmp/backends.log /tmp/expo-web.log; do
             echo "===== $f ====="
             tail -200 "$f" || true
           done
