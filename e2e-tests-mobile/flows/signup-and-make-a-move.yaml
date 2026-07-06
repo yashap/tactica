@@ -45,7 +45,7 @@ appId: host.exp.Exponent
 - assertVisible:
     id: 'piece-wP-e2'
 
-# Make the move: tap e2 (selects), tap e4 (commits)
+# White plays e4: tap e2 (selects), tap e4 (commits)
 - tapOn:
     id: 'square-e2'
 - tapOn:
@@ -57,8 +57,22 @@ appId: host.exp.Exponent
 - assertVisible:
     id: 'moveSummary'
 
-# Board is frozen — d2 pawn is still in place and d4 still empty
+# Black replies d5
+- tapOn:
+    id: 'square-d7'
+- tapOn:
+    id: 'square-d5'
 - assertVisible:
-    id: 'piece-wP-d2'
+    id: 'piece-bP-d5'
+
+# White captures: exd5 — the captured black pawn shows up in white's tray
+- tapOn:
+    id: 'square-e4'
+- tapOn:
+    id: 'square-d5'
+- assertVisible:
+    id: 'piece-wP-d5'
 - assertNotVisible:
-    id: 'piece-wP-d4'
+    id: 'piece-bP-d5'
+- assertVisible:
+    id: 'capturedByWhite-bP-0'

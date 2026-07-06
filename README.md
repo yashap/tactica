@@ -2,18 +2,6 @@
 
 Monorepo for the **Tactica** AI chess coach app.
 
-## Stack
-
-| Layer            | Tech                                                      |
-| ---------------- | --------------------------------------------------------- |
-| Monorepo         | pnpm workspaces + Turborepo                               |
-| Language         | TypeScript                                                |
-| Database         | Postgres                                                  |
-| Backend Services | Fastify + ts-rest + Drizzle                               |
-| Auth             | SuperTokens                                               |
-| Frontend         | ReactNative + Expo + Expo Router                          |
-| Tests            | Vitest (unit), Playwright (web E2E), Maestro (mobile E2E) |
-
 ## Local dev
 
 ### Initial setup
@@ -60,7 +48,7 @@ Monorepo for the **Tactica** AI chess coach app.
   pnpm --filter @tactica/e2e-tests-web exec playwright install
   ```
 
-### Common local dev workflows
+### Useful commands
 
 Very common:
 
@@ -138,3 +126,15 @@ This means editing `packages/errors/src/something.ts` is picked up immediately b
 | SuperTokens core              | 3567 |
 | Postgres (dev)                | 5440 |
 | Postgres (test)               | 5441 |
+
+## Stack
+
+| Layer            | Tech                                                      |
+| ---------------- | --------------------------------------------------------- |
+| Monorepo         | pnpm workspaces + Turborepo                               |
+| Language         | TypeScript                                                |
+| Database         | Postgres                                                  |
+| Backend Services | Fastify + ts-rest + Drizzle                               |
+| Auth             | SuperTokens                                               |
+| Frontend         | ReactNative + Expo + Expo Router                          |
+| Tests            | Vitest (unit), Playwright (web E2E), Maestro (mobile E2E) |

@@ -1,4 +1,4 @@
-import { Chess, type Square } from 'chess.js'
+import { Chess, type Move, type Square } from 'chess.js'
 import { useCallback, useState } from 'react'
 import { type PieceCode } from './pieces/cburnett'
 
@@ -43,19 +43,54 @@ export interface ChessGame {
   selectSquare: (sq: Square) => void
   attemptMove: (from: Square, to: Square) => boolean
   lastMoveSan: string | null
-  /**
-   * `true` once any move has been played. For the MVP this also means the board stops
-   * accepting input — the UI gates taps on `frozen`.
-   */
-  frozen: boolean
+  /** Side to move next. */
+  turn: 'w' | 'b'
+  /** `true` when the side to move is in check (including checkmate). */
+  isCheck: boolean
+  isCheckmate: boolean
+  /** Square of the king currently in check (or checkmated), else `null`. */
+  checkedKingSquare: Square | null
+  /** Human-readable result once the game has ended (checkmate, stalemate, draw), else `null`. */
+  gameOverText: string | null
+  /** Black pieces white has captured, sorted by piece value (pawns first). */
+  capturedByWhite: PieceCode[]
+  /** White pieces black has captured, sorted by piece value (pawns first). */
+  capturedByBlack: PieceCode[]
+}
+
+const PIECE_VALUE: Record<string, number> = { p: 1, n: 2, b: 3, r: 4, q: 5 }
+
+/** Pieces captured by `color`, from the verbose move history, sorted by piece value. */
+const capturedPieces = (history: Move[], color: 'w' | 'b'): PieceCode[] => {
+  const victimColor = color === 'w' ? 'b' : 'w'
+  return history
+    .filter((m) => m.color === color && m.captured)
+    .map((m) => `${victimColor}${m.captured!.toUpperCase()}` as PieceCode)
+    .sort((a, b) => PIECE_VALUE[a[1]!.toLowerCase()]! - PIECE_VALUE[b[1]!.toLowerCase()]!)
+}
+
+const findKingSquare = (board: BoardGrid, color: 'w' | 'b'): Square | null => {
+  for (const row of board) {
+    for (const cell of row) {
+      if (cell?.code === `${color}K`) return cell.square
+    }
+  }
+  return null
+}
+
+const toGameOverText = (chess: Chess): string | null => {
+  if (chess.isCheckmate()) {
+    return chess.turn() === 'w' ? 'Checkmate — black wins' : 'Checkmate — white wins'
+  }
+  if (chess.isStalemate()) return 'Stalemate'
+  if (chess.isDraw()) return 'Draw'
+  return null
 }
 
 /**
  * State container for a single chess game. Wraps `chess.js`; exposes a React-friendly view
- * of the board plus selection + move helpers.
- *
- * Move count is tracked via `chess.history().length` rather than a mirror count so we always
- * agree with the underlying engine.
+ * of the board plus selection + move helpers. Both sides are played from the same board
+ * (hotseat style) — `chess.js` enforces turn alternation and move legality.
  */
 export const useChessGame = (): ChessGame => {
   const [chess] = useState(() => new Chess())
@@ -71,16 +106,14 @@ export const useChessGame = (): ChessGame => {
   // 64 cells on every render is cheap, so we just do it inline.
   const board = toBoardGrid(chess)
   const history = chess.history({ verbose: true })
-  const frozen = history.length > 0
   const lastMoveSan = history.length > 0 ? history[history.length - 1]!.san : null
 
-  const legalDestinations: Square[] =
-    !selectedSquare || frozen ? [] : chess.moves({ square: selectedSquare, verbose: true }).map((m) => m.to as Square)
+  const legalDestinations: Square[] = !selectedSquare
+    ? []
+    : chess.moves({ square: selectedSquare, verbose: true }).map((m) => m.to as Square)
 
   const selectSquare = useCallback(
     (sq: Square): void => {
-      if (frozen) return
-
       // If a square is already selected and the tap lands on a legal destination, treat the
       // second tap as a move attempt. Otherwise the tap selects (or deselects) a square.
       if (selectedSquare) {
@@ -100,12 +133,11 @@ export const useChessGame = (): ChessGame => {
         setSelectedSquare(null)
       }
     },
-    [chess, selectedSquare, frozen, bump],
+    [chess, selectedSquare, bump],
   )
 
   const attemptMove = useCallback(
     (from: Square, to: Square): boolean => {
-      if (frozen) return false
       try {
         chess.move({ from, to, promotion: 'q' })
         setSelectedSquare(null)
@@ -115,8 +147,11 @@ export const useChessGame = (): ChessGame => {
         return false
       }
     },
-    [chess, frozen, bump],
+    [chess, bump],
   )
+
+  // isCheck() is also true during checkmate, so this covers both.
+  const isCheck = chess.isCheck()
 
   return {
     board,
@@ -125,6 +160,12 @@ export const useChessGame = (): ChessGame => {
     selectSquare,
     attemptMove,
     lastMoveSan,
-    frozen,
+    turn: chess.turn(),
+    isCheck,
+    isCheckmate: chess.isCheckmate(),
+    checkedKingSquare: isCheck ? findKingSquare(board, chess.turn()) : null,
+    gameOverText: toGameOverText(chess),
+    capturedByWhite: capturedPieces(history, 'w'),
+    capturedByBlack: capturedPieces(history, 'b'),
   }
 }
