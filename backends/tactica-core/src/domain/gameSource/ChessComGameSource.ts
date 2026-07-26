@@ -1,4 +1,4 @@
-import { type GameResult } from '@tactica/tactica-core-contract'
+import { type ChessColor, type GameResult } from '@tactica/tactica-core-contract'
 import { getLogger } from '@tactica/logging'
 import { type ChessComApi, type ChessComGame } from './ChessComClient.js'
 import { type ExternalGame, type FetchGamesOptions, type GameBatch, type GameSource } from './GameSource.js'
@@ -70,9 +70,9 @@ export class ChessComGameSource implements GameSource {
     const lowerUsername = username.toLowerCase()
     let userSide: ChessComGamePlayerSide
     if (game.white.username.toLowerCase() === lowerUsername) {
-      userSide = { userColor: 'w', user: game.white, opponent: game.black }
+      userSide = { userColor: 'white', user: game.white, opponent: game.black }
     } else if (game.black.username.toLowerCase() === lowerUsername) {
-      userSide = { userColor: 'b', user: game.black, opponent: game.white }
+      userSide = { userColor: 'black', user: game.black, opponent: game.white }
     } else {
       return skip('account user is not a player in this game')
     }
@@ -91,7 +91,7 @@ export class ChessComGameSource implements GameSource {
 }
 
 interface ChessComGamePlayerSide {
-  userColor: 'w' | 'b'
+  userColor: ChessColor
   user: { username: string; result: string }
   opponent: { username: string; result: string }
 }

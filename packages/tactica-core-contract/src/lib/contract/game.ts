@@ -6,7 +6,7 @@ import { GameSourceSchema } from './gameAccount.js'
 
 const c = initContract()
 
-export const ChessColorSchema = z.enum(['w', 'b'])
+export const ChessColorSchema = z.enum(['white', 'black'])
 export type ChessColor = z.infer<typeof ChessColorSchema>
 
 /** Result of the game from the account owner's perspective. */

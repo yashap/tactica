@@ -40,7 +40,7 @@ describe('ChessComGameSource', () => {
     const [batch] = await collect(source.fetchGames('TestUser', { maxBatches: 10 }))
     expect(batch!.games).toHaveLength(1)
     const game = batch!.games[0]!
-    expect(game.userColor).toBe('w')
+    expect(game.userColor).toBe('white')
     expect(game.result).toBe('win')
     expect(game.opponentUsername).toBe('opponent')
     expect(game.playedAt).toEqual(new Date(1750000000 * 1000))
@@ -53,7 +53,7 @@ describe('ChessComGameSource', () => {
     })
     const source = new ChessComGameSource(stubClient({ '2020-01': [game] }))
     const [batch] = await collect(source.fetchGames('testuser', { maxBatches: 10 }))
-    expect(batch!.games[0]!.userColor).toBe('b')
+    expect(batch!.games[0]!.userColor).toBe('black')
     expect(batch!.games[0]!.result).toBe('draw')
   })
 

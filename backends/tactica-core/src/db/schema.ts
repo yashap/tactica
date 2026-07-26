@@ -2,7 +2,7 @@ import { standardFields } from '@tactica/drizzle-utils'
 import { index, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core'
 
 export const gameSourceEnum = pgEnum('GameSource', ['chesscom', 'lichess'])
-export const chessColorEnum = pgEnum('ChessColor', ['w', 'b'])
+export const chessColorEnum = pgEnum('ChessColor', ['white', 'black'])
 /** Result from the account owner's perspective. */
 export const gameResultEnum = pgEnum('GameResult', ['win', 'loss', 'draw'])
 export const gameAnalysisStatusEnum = pgEnum('GameAnalysisStatus', ['pending', 'analyzing', 'analyzed', 'failed'])

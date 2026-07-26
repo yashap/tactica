@@ -18,7 +18,7 @@ const externalGame = (externalId: string, overrides: Partial<ExternalGame> = {})
   pgn: VALID_PGN,
   playedAt: new Date('2024-01-15T12:00:00Z'),
   timeControl: '600',
-  userColor: 'w',
+  userColor: 'white',
   opponentUsername: 'opponent',
   result: 'win',
   ...overrides,
@@ -139,7 +139,7 @@ describe('importGamesJob (integration)', () => {
         isComplete: true,
         games: [
           externalGame('g1', {
-            userColor: 'b',
+            userColor: 'black',
             result: 'loss',
             opponentUsername: 'magnus',
             timeControl: '180+2',
@@ -152,7 +152,7 @@ describe('importGamesJob (integration)', () => {
     expect(games).toHaveLength(1)
     const game = games[0]!
     expect(game.externalGameId).toBe('g1')
-    expect(game.userColor).toBe('b')
+    expect(game.userColor).toBe('black')
     expect(game.result).toBe('loss')
     expect(game.opponentUsername).toBe('magnus')
     expect(game.timeControl).toBe('180+2')

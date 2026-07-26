@@ -380,7 +380,7 @@
     "public.ChessColor": {
       "name": "ChessColor",
       "schema": "public",
-      "values": ["w", "b"]
+      "values": ["white", "black"]
     },
     "public.GameAnalysisStatus": {
       "name": "GameAnalysisStatus",

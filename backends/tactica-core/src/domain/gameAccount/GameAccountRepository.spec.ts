@@ -69,7 +69,7 @@ describe('GameAccountRepository (integration)', () => {
         pgn: '1. e4 e5 1/2-1/2',
         playedAt: new Date(),
         timeControl: '600',
-        userColor: 'w',
+        userColor: 'white',
         opponentUsername: 'opponent',
         result: 'draw',
       },

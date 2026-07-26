@@ -1,4 +1,4 @@
-CREATE TYPE "public"."ChessColor" AS ENUM('w', 'b');--> statement-breakpoint
+CREATE TYPE "public"."ChessColor" AS ENUM('white', 'black');--> statement-breakpoint
 CREATE TYPE "public"."GameAnalysisStatus" AS ENUM('pending', 'analyzing', 'analyzed', 'failed');--> statement-breakpoint
 CREATE TYPE "public"."GameResult" AS ENUM('win', 'loss', 'draw');--> statement-breakpoint
 CREATE TYPE "public"."GameSource" AS ENUM('chesscom', 'lichess');--> statement-breakpoint
