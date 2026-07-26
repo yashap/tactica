@@ -8,6 +8,20 @@
       "when": 1779603205679,
       "tag": "0000_gorgeous_black_tarantula",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1785023937241,
+      "tag": "0001_chess_com_games",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785023968473,
+      "tag": "0002_drop_todo",
+      "breakpoints": true
     }
   ]
 }

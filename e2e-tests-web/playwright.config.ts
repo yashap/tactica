@@ -4,6 +4,7 @@ const expoWebUrl = process.env['TACTICA_WEB_URL'] ?? 'http://localhost:8081'
 
 export default defineConfig({
   testDir: './src',
+  globalSetup: './src/fixtures/globalSetup.ts',
   fullyParallel: false,
   workers: 1,
   forbidOnly: !!process.env['CI'],

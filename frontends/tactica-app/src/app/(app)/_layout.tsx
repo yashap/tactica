@@ -1,4 +1,4 @@
-import { Redirect, router, Stack } from 'expo-router'
+import { Redirect, router, Tabs } from 'expo-router'
 import React from 'react'
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
 import { useAuth } from '../../auth/AuthContext'
@@ -19,6 +19,10 @@ const LogOutButton: React.FC = () => {
   )
 }
 
+const TabIcon: React.FC<{ glyph: string; color: string }> = ({ glyph, color }) => (
+  <Text style={{ color, fontSize: 20, lineHeight: 24 }}>{glyph}</Text>
+)
+
 const AppLayout: React.FC = () => {
   const { state } = useAuth()
   if (state.status === 'initializing') {
@@ -30,13 +34,31 @@ const AppLayout: React.FC = () => {
   }
   if (state.status === 'logged-out') return <Redirect href="/logIn" />
   return (
-    <Stack
+    <Tabs
       screenOptions={{
         title: 'Tactica',
         headerTitle: () => <TacticaWordmark />,
         headerRight: () => <LogOutButton />,
+        tabBarActiveTintColor: '#D9A441',
       }}
-    />
+    >
+      <Tabs.Screen
+        name="play"
+        options={{
+          tabBarLabel: 'Play',
+          tabBarIcon: ({ color }) => <TabIcon glyph="♟" color={color} />,
+          tabBarButtonTestID: 'playTab',
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          tabBarLabel: 'Settings',
+          tabBarIcon: ({ color }) => <TabIcon glyph="⚙" color={color} />,
+          tabBarButtonTestID: 'settingsTab',
+        }}
+      />
+    </Tabs>
   )
 }
 

@@ -18,4 +18,14 @@ export const config = {
     connectionUri: env('SUPERTOKENS_CORE_URL', 'http://localhost:3567'),
     apiKey: process.env['SUPERTOKENS_API_KEY'],
   },
+  /** When false, this process serves HTTP but does not run background jobs (e.g. in tests). */
+  workerEnabled: env('WORKER_ENABLED', 'true') === 'true',
+  /** Cap on how many monthly archives a single import job will fetch (first sync = recent N months). */
+  importMaxMonths: Number(env('IMPORT_MAX_MONTHS', '3')),
+  chesscom: {
+    apiUrl: env('CHESSCOM_API_URL', 'https://api.chess.com/pub'),
+    // chess.com asks API consumers to identify themselves via User-Agent so they can reach out
+    // (or throttle) rather than block anonymous traffic outright
+    userAgent: env('CHESSCOM_USER_AGENT', 'Tactica (https://github.com/yashap/tactica)'),
+  },
 } as const
