@@ -26,6 +26,7 @@
   "dependencies": {
     "@tactica/api-client-utils": "workspace:*",
     "@tactica/errors": "workspace:*",
+    "@tactica/pagination": "workspace:^",
     "@tactica/tactica-core-contract": "workspace:*",
     "@ts-rest/core": "^3.52.1",
     "axios": "^1.11.0"

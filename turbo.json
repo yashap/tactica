@@ -10,7 +10,11 @@
     "SUPERTOKENS_CORE_URL",
     "SUPERTOKENS_API_KEY",
     "TACTICA_WEB_URL",
-    "TACTICA_CORE_URL"
+    "TACTICA_CORE_URL",
+    "WORKER_ENABLED",
+    "IMPORT_MAX_MONTHS",
+    "CHESSCOM_API_URL",
+    "CHESSCOM_USER_AGENT"
   ],
   "tasks": {
     "build": {

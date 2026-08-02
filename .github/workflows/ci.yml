@@ -76,6 +76,10 @@ jobs:
       - name: Start backends — tactica-core (3501) and SuperTokens (3567)
         # serve:backend runs both serve tasks via turbo (supertokens is in tactica-core's task graph)
         run: nohup pnpm serve:backend > /tmp/backends.log 2>&1 &
+        env:
+          # Never hit the real chess.com API in CI — the Playwright globalSetup starts a local
+          # fixture server (e2e-tests-web/src/fixtures/chesscomFixtureServer.ts) on this port
+          CHESSCOM_API_URL: http://localhost:4599
 
       - name: Start Expo web (8081)
         run: nohup pnpm serve:tactica:web > /tmp/expo-web.log 2>&1 &

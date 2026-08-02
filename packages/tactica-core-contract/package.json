@@ -25,6 +25,7 @@
   },
   "dependencies": {
     "@tactica/api-client-utils": "workspace:*",
+    "@tactica/pagination": "workspace:*",
     "@ts-rest/core": "^3.52.1",
     "zod": "^3.24.1"
   },

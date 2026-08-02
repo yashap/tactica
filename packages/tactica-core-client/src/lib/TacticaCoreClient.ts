@@ -8,13 +8,20 @@ import {
   extractPatchResponse,
   extractPostResponse,
 } from '@tactica/api-client-utils'
+import { type PaginationRequestDto } from '@tactica/pagination'
 import {
-  type CreateTodoRequest,
+  type CreateGameAccountRequest,
+  type Game,
+  type GameAccountWithStats,
+  type GameWithPgn,
   type SessionInfo,
   tacticaCoreContract,
-  type Todo,
-  type UpdateTodoRequest,
 } from '@tactica/tactica-core-contract'
+
+export interface PaginatedGames {
+  data: Game[]
+  pagination: { next?: string; previous?: string }
+}
 
 export class TacticaCoreClient {
   private readonly client: ApiClient<typeof tacticaCoreContract>
@@ -28,21 +35,30 @@ export class TacticaCoreClient {
       extractGetByIdResponse(this.client.session.get()) as Promise<SessionInfo | undefined>,
   }
 
-  public readonly todos = {
-    list: async (): Promise<Todo[]> => {
-      const response = await extractListResponse(this.client.todos.list())
-      return response.todos
+  public readonly gameAccounts = {
+    list: async (): Promise<GameAccountWithStats[]> => {
+      const response = await extractListResponse(this.client.gameAccounts.list())
+      return response.gameAccounts
     },
 
-    get: async (id: string): Promise<Todo | undefined> =>
-      extractGetByIdResponse(this.client.todos.get({ params: { id } })),
+    get: async (id: string): Promise<GameAccountWithStats | undefined> =>
+      extractGetByIdResponse(this.client.gameAccounts.get({ params: { id } })),
 
-    create: async (request: CreateTodoRequest): Promise<Todo> =>
-      extractPostResponse(this.client.todos.create({ body: request })),
+    create: async (request: CreateGameAccountRequest): Promise<GameAccountWithStats> =>
+      extractPostResponse(this.client.gameAccounts.create({ body: request })),
 
-    update: async (id: string, request: UpdateTodoRequest): Promise<Todo> =>
-      extractPatchResponse(this.client.todos.update({ params: { id }, body: request })),
+    sync: async (id: string): Promise<GameAccountWithStats> =>
+      extractPatchResponse(this.client.gameAccounts.sync({ params: { id }, body: {} })),
 
-    delete: async (id: string): Promise<void> => extractDeleteResponse(this.client.todos.delete({ params: { id } })),
+    delete: async (id: string): Promise<void> =>
+      extractDeleteResponse(this.client.gameAccounts.delete({ params: { id } })),
+  }
+
+  public readonly games = {
+    list: async (pagination: PaginationRequestDto = {}): Promise<PaginatedGames> =>
+      extractListResponse(this.client.games.list({ query: pagination })),
+
+    get: async (id: string): Promise<GameWithPgn | undefined> =>
+      extractGetByIdResponse(this.client.games.get({ params: { id } })),
   }
 }

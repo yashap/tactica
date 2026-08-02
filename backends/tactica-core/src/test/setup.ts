@@ -7,3 +7,5 @@ process.env['DATABASE_URL'] =
   process.env['DATABASE_URL'] ??
   'postgres://tactica_core:tactica_core_password@localhost:5441/tactica_core?sslmode=disable'
 process.env['LOG_LEVEL'] = process.env['LOG_LEVEL'] ?? 'off'
+// Tests never run background workers — they invoke job handlers directly instead
+process.env['WORKER_ENABLED'] = 'false'
