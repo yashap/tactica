@@ -14,7 +14,12 @@
     "WORKER_ENABLED",
     "IMPORT_MAX_MONTHS",
     "CHESSCOM_API_URL",
-    "CHESSCOM_USER_AGENT"
+    "CHESSCOM_USER_AGENT",
+    "STOCKFISH_PATH",
+    "STOCKFISH_PORT",
+    "STOCKFISH_URL",
+    "ENGINE_THREADS",
+    "ENGINE_HASH"
   ],
   "tasks": {
     "build": {

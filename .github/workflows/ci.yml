@@ -49,6 +49,22 @@ jobs:
         run: pnpm db:migrate-up:test
       - run: pnpm test
 
+  stockfish-smoke:
+    # Builds the engine image and asserts against a real Stockfish over HTTP. Its own job because
+    # `pnpm test` stays hermetic — the unit suites need neither Docker nor the engine binary.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build image, run container, assert against the engine
+        run: pnpm --filter @tactica/stockfish test:smoke
+
   e2e-web:
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -73,8 +89,9 @@ jobs:
       - name: Start dev Postgres and run migrations
         run: pnpm db:migrate-up
 
-      - name: Start backends — tactica-core (3501) and SuperTokens (3567)
-        # serve:backend runs both serve tasks via turbo (supertokens is in tactica-core's task graph)
+      - name: Start backends — tactica-core (3501), SuperTokens (3567), stockfish (3503)
+        # serve:backend runs all three serve tasks via turbo (supertokens and stockfish are
+        # registered as sidecars of tactica-core's serve task)
         run: nohup pnpm serve:backend > /tmp/backends.log 2>&1 &
         env:
           # Never hit the real chess.com API in CI — the Playwright globalSetup starts a local
@@ -105,6 +122,8 @@ jobs:
           }
           wait_for "SuperTokens" "http://localhost:3567/hello" 60
           wait_for "tactica-core" "http://localhost:3501" 45
+          # Generous: this one has to build its Docker image before the container can start
+          wait_for "stockfish" "http://localhost:3503/health" 120
           wait_for "Expo web" "http://localhost:8081" 150
 
       - name: Warm Metro bundle

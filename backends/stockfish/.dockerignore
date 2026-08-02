@@ -1,0 +1,8 @@
+# Only the compiled output and package.json belong in the image — see the Dockerfile comment.
+*
+!package.json
+!dist
+dist/**/*.map
+dist/**/*.d.ts
+# A host-side test tool, not part of the service
+dist/smokeTest.*

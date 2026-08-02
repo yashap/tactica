@@ -1,0 +1,25 @@
+{
+  "name": "@tactica/stockfish",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "clean": "rm -rf dist .turbo .tsbuildinfo",
+    "format": "eslint \"src/**/*.ts\" --fix",
+    "lint": "tsc --noEmit && eslint \"src/**/*.ts\"",
+    "serve": "pnpm build && ../../tools/scripts/serve_stockfish.sh",
+    "start": "node dist/main.js",
+    "test": "vitest run --passWithNoTests",
+    "test:smoke": "pnpm build && ../../tools/scripts/stockfish_smoke_test.sh"
+  },
+  "devDependencies": {
+    "@tactica/eslint-config": "workspace:*",
+    "@tactica/tsconfig": "workspace:*",
+    "@types/node": "^22.10.0",
+    "eslint": "^9.34.0",
+    "typescript": "^5.9.2",
+    "vitest": "^2.1.8"
+  }
+}
