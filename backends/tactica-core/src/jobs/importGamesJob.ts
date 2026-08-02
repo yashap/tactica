@@ -51,7 +51,16 @@ export const buildImportGamesJob =
       maxBatches: deps.maxMonths,
     })
     for await (const batch of batches) {
-      const rows = batch.games.flatMap((game): NewGameRow[] => {
+      // Providers only serve coarse batches (chess.com: a whole month), so every sync re-fetches
+      // games we already have. Drop those up front — the unique index would reject them anyway,
+      // but this avoids PGN-parsing and shipping multi-KB rows to Postgres for nothing.
+      const alreadyImported = await deps.gameRepository.findExistingExternalGameIds(
+        account.userId,
+        account.source,
+        batch.games.map((game) => game.externalId),
+      )
+      const newGames = batch.games.filter((game) => !alreadyImported.has(game.externalId))
+      const rows = newGames.flatMap((game): NewGameRow[] => {
         if (!isParseablePgn(game.pgn)) {
           logger.warn('Skipping game with unparseable PGN', { externalGameId: game.externalId })
           return []
@@ -63,7 +72,12 @@ export const buildImportGamesJob =
       if (batch.isComplete && (!newestCompleteBatch || batch.batchKey > newestCompleteBatch)) {
         newestCompleteBatch = batch.batchKey
       }
-      logger.info('Imported game batch', { batchKey: batch.batchKey, fetched: batch.games.length, inserted })
+      logger.info('Imported game batch', {
+        batchKey: batch.batchKey,
+        fetched: batch.games.length,
+        alreadyImported: alreadyImported.size,
+        inserted,
+      })
     }
 
     await deps.gameAccountRepository.recordSyncCompleted(payload.userId, account.id, newestCompleteBatch)

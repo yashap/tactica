@@ -49,6 +49,22 @@ describe('GameRepository (integration)', () => {
     expect(await repo.countByGameAccount(userId, account.id)).toBe(3)
   })
 
+  it('reports which externalGameIds are already imported', async () => {
+    await repo.insertMany([
+      newGameRow(userId, account.id, 'have-1', new Date('2024-01-01')),
+      newGameRow(userId, account.id, 'have-2', new Date('2024-01-02')),
+    ])
+
+    const existing = await repo.findExistingExternalGameIds(userId, 'chesscom', ['have-1', 'missing', 'have-2'])
+    expect(existing).toEqual(new Set(['have-1', 'have-2']))
+
+    expect(await repo.findExistingExternalGameIds(userId, 'chesscom', [])).toEqual(new Set())
+    expect(await repo.findExistingExternalGameIds(userId, 'chesscom', ['missing'])).toEqual(new Set())
+    // Scoped by user and by source, matching the unique index that dedupes inserts
+    expect(await repo.findExistingExternalGameIds(crypto.randomUUID(), 'chesscom', ['have-1'])).toEqual(new Set())
+    expect(await repo.findExistingExternalGameIds(userId, 'lichess', ['have-1'])).toEqual(new Set())
+  })
+
   it('allows the same externalGameId for different users', async () => {
     const otherUserId = crypto.randomUUID()
     const otherAccount = await accountRepo.create({

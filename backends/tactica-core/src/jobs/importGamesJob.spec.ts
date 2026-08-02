@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, it } from 'vitest'
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { db, sql } from '../db/client.js'
 import { gameAccountTable, type GameAccountRow } from '../db/schema.js'
 import { GameAccountRepository } from '../domain/gameAccount/GameAccountRepository.js'
@@ -85,6 +85,23 @@ describe('importGamesJob (integration)', () => {
     // Second run sees the same batches (e.g. a retry) — no duplicates
     await runJob(batches)
     expect(await gameRepository.countByGameAccount(userId, account.id)).toBe(4)
+  })
+
+  it('filters out games it already has before parsing and inserting them', async () => {
+    // The realistic case: the current month is re-fetched every sync, so most of the batch is
+    // already imported and only the tail is new.
+    const games = [externalGame('g1'), externalGame('g2')]
+    await runJob([{ batchKey: '2024-01', isComplete: false, games }])
+    expect(await gameRepository.countByGameAccount(userId, account.id)).toBe(2)
+
+    const insertMany = vi.spyOn(gameRepository, 'insertMany')
+    await runJob([{ batchKey: '2024-01', isComplete: false, games: [...games, externalGame('g3')] }])
+
+    // Only the genuinely-new game reaches the insert — the other two never get that far
+    expect(insertMany).toHaveBeenCalledTimes(1)
+    expect(insertMany.mock.calls[0]?.[0]?.map((row) => row.externalGameId)).toEqual(['g3'])
+    expect(await gameRepository.countByGameAccount(userId, account.id)).toBe(3)
+    insertMany.mockRestore()
   })
 
   it('advances the checkpoint to the newest complete batch and records the sync time', async () => {

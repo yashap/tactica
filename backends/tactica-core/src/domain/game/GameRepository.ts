@@ -1,6 +1,6 @@
 import { InputValidationError } from '@tactica/errors'
 import { type Cursor, type Pagination, type ParseOrdering } from '@tactica/pagination'
-import { and, asc, count, desc, eq, gt, lt, or, type SQL } from 'drizzle-orm'
+import { and, asc, count, desc, eq, gt, inArray, lt, or, type SQL } from 'drizzle-orm'
 import { type Db } from '../../db/client.js'
 import { gameTable, type GameRow, type NewGameRow } from '../../db/schema.js'
 
@@ -33,6 +33,31 @@ export class GameRepository {
       .onConflictDoNothing({ target: [gameTable.userId, gameTable.source, gameTable.externalGameId] })
       .returning({ id: gameTable.id })
     return inserted.length
+  }
+
+  /**
+   * Which of `externalGameIds` are already imported for this user + source. Lets importers skip
+   * work (PGN parsing, sending multi-KB rows to Postgres) for games they already have — providers
+   * like chess.com only serve whole monthly archives, so every sync re-fetches games we've seen.
+   * Hits the same unique index that dedupes inserts, so it stays an exact answer, not a heuristic.
+   */
+  public async findExistingExternalGameIds(
+    userId: string,
+    source: GameRow['source'],
+    externalGameIds: string[],
+  ): Promise<Set<string>> {
+    if (externalGameIds.length === 0) return new Set()
+    const rows = await this.db
+      .select({ externalGameId: gameTable.externalGameId })
+      .from(gameTable)
+      .where(
+        and(
+          eq(gameTable.userId, userId),
+          eq(gameTable.source, source),
+          inArray(gameTable.externalGameId, externalGameIds),
+        ),
+      )
+    return new Set(rows.map((row) => row.externalGameId))
   }
 
   public async findById(userId: string, id: string): Promise<GameRow | undefined> {
