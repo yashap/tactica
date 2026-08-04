@@ -2,15 +2,15 @@
 
 set -eo pipefail
 
-# Builds the stockfish service image. Expects the TypeScript to have been compiled already — the
-# Dockerfile copies `dist` rather than building inside the image (see the comment there).
+# Builds the stockfish service image. Expects the service to have been bundled already — the
+# Dockerfile copies the prebuilt bundle rather than building inside the image (see the comment there).
 
 image_name="${1:-tactica-stockfish:local}"
 repo_root="$(git rev-parse --show-toplevel)"
 service_dir="$repo_root/backends/stockfish"
 
-if [ ! -d "$service_dir/dist" ]; then
-    echo >&2 "No compiled output at $service_dir/dist — run 'pnpm --filter @tactica/stockfish build' first"
+if [ ! -f "$service_dir/dist/server.cjs" ]; then
+    echo >&2 "No bundle at $service_dir/dist/server.cjs — run 'pnpm --filter @tactica/stockfish build' first"
     exit 1
 fi
 

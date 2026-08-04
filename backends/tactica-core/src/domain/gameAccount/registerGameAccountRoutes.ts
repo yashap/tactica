@@ -1,5 +1,5 @@
 import { InputValidationError } from '@tactica/errors'
-import { getSessionUserId } from '@tactica/fastify-utils'
+import { getSessionUserId, tacticaRequestValidationErrorHandler } from '@tactica/fastify-utils'
 import { type GameAccountStats, type GameAccountWithStats, tacticaCoreContract } from '@tactica/tactica-core-contract'
 import { initServer } from '@ts-rest/fastify'
 import type { FastifyInstance } from 'fastify'
@@ -101,5 +101,7 @@ export const registerGameAccountRoutes = async (app: FastifyInstance, deps: Game
     },
   })
 
-  await app.register(s.plugin(router))
+  await app.register(s.plugin(router), {
+    requestValidationErrorHandler: tacticaRequestValidationErrorHandler,
+  })
 }

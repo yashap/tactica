@@ -56,7 +56,7 @@ Very common:
 # Install pnpm deps + ensure DB up + run migrations (dev & test)
 pnpm sync
 
-# In own terminal: serve all backends (tactica-core + SuperTokens core, in parallel via turbo)
+# In own terminal: serve all backends (tactica-core + SuperTokens core + stockfish, in parallel via turbo)
 pnpm serve:backend
 
 # In own terminal: the Expo app (web, iOS, Android)
@@ -106,6 +106,7 @@ For additional info about the approaches we take with builds and dependency mana
 | Expo (iOS, Metro bundler)     | 8082 |
 | Expo (Android, Metro bundler) | 8083 |
 | tactica-core                  | 3501 |
+| stockfish                     | 3503 |
 | SuperTokens core              | 3567 |
 | Postgres (dev)                | 5440 |
 | Postgres (test)               | 5441 |

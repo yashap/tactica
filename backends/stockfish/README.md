@@ -63,28 +63,43 @@ Every value has a working default, so no env vars are required.
 | `STOCKFISH_PATH`              | `stockfish` | Engine binary, resolved from `PATH`               |
 | `ENGINE_THREADS`              | 1           | UCI `Threads` — keep low so N containers behave   |
 | `ENGINE_HASH`                 | 128         | UCI `Hash` in MB                                  |
-| `DEFAULT_MOVETIME_MS`         | 100         | Used when a request omits `movetimeMs`            |
-| `DEFAULT_MULTI_PV`            | 1           | Used when a request omits `multiPv`               |
-| `MAX_MOVETIME_MS`             | 60000       | Upper bound accepted per request                  |
-| `MAX_MULTI_PV`                | 10          | Upper bound accepted per request                  |
 | `ENGINE_SEARCH_GRACE_MS`      | 10000       | Slack past `movetimeMs` before the engine is hung |
 | `ENGINE_HANDSHAKE_TIMEOUT_MS` | 10000       | Budget for `uciok`/`readyok` at startup           |
 | `ENGINE_SHUTDOWN_TIMEOUT_MS`  | 2000        | Graceful `quit` budget before SIGKILL             |
 
+Per-request defaults and limits (`movetimeMs`, `multiPv`) live in the contract's Zod schema rather
+than in env vars — they're part of the API, and callers that want different search budgets pass them
+per request.
+
 ## Testing
 
 ```bash
-pnpm --filter @tactica/stockfish test        # unit tests: UCI parsing + request validation (no engine)
+pnpm --filter @tactica/stockfish test        # UCI parsing (no engine, no Docker)
 pnpm --filter @tactica/stockfish test:smoke  # builds the image, runs it, asserts against a real engine
 ```
 
-The smoke test runs on an isolated port (3599) under its own container name, so it won't disturb a
-container you already have running for development.
+Request/response validation is covered by `@tactica/stockfish-contract`'s own tests. The smoke test
+runs on an isolated port (3599) under its own container name, so it won't disturb a container you
+already have running for development.
 
 ## How it works
 
+Standard stack, same as every other backend: Fastify + ts-rest against a shared contract, with
+`@tactica/logging` and the correlation-ID and error-handling plugins wired up by
+`InternalFastifyAppBuilder` (the SuperTokens-free sibling of `FastifyAppBuilder` — nothing in a
+browser talks to this service). That means an `x-correlation-id` from `tactica-analysis` shows up on
+every log line this service emits, and thrown errors serialize to the same `{ message, code }` DTO
+as everywhere else.
+
+Being the one service that ships **inside a container we build**, it has a packaging problem the
+others don't: `pnpm deploy` symlinks workspace packages back to their source directories, which
+doesn't survive a `COPY`. So the service is bundled into a single self-contained file with esbuild and
+that one file is the whole image payload. See the Dockerfile for the two non-obvious bundler flags
+(`--format=cjs` and `--keep-names`) and what breaks without them.
+
 One Stockfish process is started at boot and kept warm — the UCI handshake and NNUE load cost far
 more than a short search. Since a single engine can only search one position at a time, requests are
-serialized through a promise queue. A search that blows past `movetimeMs + ENGINE_SEARCH_GRACE_MS` is
+serialized through a promise queue; treat this as a single-slot resource and scale with replicas
+rather than concurrent calls. A search that blows past `movetimeMs + ENGINE_SEARCH_GRACE_MS` is
 treated as wedged: the process is killed and the next request starts a fresh one. Crashes are handled
 the same lazy way, which avoids a restart loop when the binary itself is broken.

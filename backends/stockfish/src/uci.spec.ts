@@ -1,5 +1,6 @@
+import { type EngineLine } from '@tactica/stockfish-contract'
 import { describe, expect, it } from 'vitest'
-import { type EngineLine, parseBestMoveLine, parseInfoLine, selectBestLines } from './uci.js'
+import { parseBestMoveLine, parseInfoLine, selectBestLines } from './uci.js'
 
 describe('parseInfoLine', () => {
   it('parses a single-PV centipawn line', () => {

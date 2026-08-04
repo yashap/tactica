@@ -1,18 +1,9 @@
+import { getLogger } from '@tactica/logging'
+import { type EngineLine, type EvaluateRequest, type EvaluateResponse } from '@tactica/stockfish-contract'
 import { type ChildProcessWithoutNullStreams, spawn } from 'node:child_process'
 import { createInterface, type Interface } from 'node:readline'
-import { type EvaluateRequest } from './evaluateRequest.js'
-import { log } from './log.js'
-import { type EngineLine, parseBestMoveLine, parseInfoLine, selectBestLines } from './uci.js'
-
-export class EngineError extends Error {}
-export class EngineTimeoutError extends EngineError {}
-
-export interface EvaluateResponse {
-  /** `null` for an already-terminal position (checkmate or stalemate). */
-  bestMoveUci: string | null
-  /** Best-first; one entry per requested PV rank (fewer if the position has fewer legal moves). */
-  lines: EngineLine[]
-}
+import { EngineError, EngineTimeoutError } from './errors.js'
+import { parseBestMoveLine, parseInfoLine, selectBestLines } from './uci.js'
 
 export interface UciEngineOptions {
   binaryPath: string
@@ -69,7 +60,7 @@ export class UciEngine {
     this.write('quit')
     await new Promise<void>((resolve) => {
       const timer = setTimeout(() => {
-        log.warn('stockfish did not exit in time, killing it')
+        getLogger().warn('stockfish did not exit in time, killing it')
         child.kill('SIGKILL')
         resolve()
       }, this.options.shutdownTimeoutMs)
@@ -99,8 +90,8 @@ export class UciEngine {
       this.write(`setoption name MultiPV value ${request.multiPv}`)
       this.multiPvSetting = request.multiPv
     }
-    // `fen` is validated upstream; notably it cannot contain a newline, so it can't smuggle in
-    // extra UCI commands here.
+    // `fen` is validated by the contract's schema; notably it cannot contain a newline, so it can't
+    // smuggle in extra UCI commands here.
     this.write(`position fen ${request.fen}`)
     return this.search(request.movetimeMs)
   }
@@ -127,7 +118,8 @@ export class UciEngine {
   private async ensureStarted(): Promise<void> {
     if (this.child !== undefined) return
 
-    log.info('starting stockfish', { binaryPath: this.options.binaryPath })
+    const logger = getLogger()
+    logger.info('Starting stockfish', { binaryPath: this.options.binaryPath })
     const child = spawn(this.options.binaryPath, [], { stdio: ['pipe', 'pipe', 'pipe'] })
     this.child = child
     this.multiPvSetting = undefined
@@ -135,7 +127,7 @@ export class UciEngine {
     this.reader.on('line', (line: string) => this.onLine?.(line))
     child.stderr.on('data', (chunk: Buffer) => {
       const output = chunk.toString().trim()
-      if (output.length > 0) log.warn('stockfish stderr', { output })
+      if (output.length > 0) logger.warn('stockfish stderr', { output })
     })
     child.on('error', (error: Error) => this.handleProcessLoss(`could not be started (${error.message})`))
     child.on('exit', (code, signal) => this.handleProcessLoss(`exited (code=${code}, signal=${signal})`))
@@ -158,7 +150,7 @@ export class UciEngine {
         if (line.trim() === 'readyok') resolve(undefined)
       },
     })
-    log.info('stockfish ready', { threads: this.options.threads, hashMb: this.options.hashMb })
+    logger.info('stockfish ready', { threads: this.options.threads, hashMb: this.options.hashMb })
   }
 
   /**
@@ -185,7 +177,7 @@ export class UciEngine {
 
       const timer = setTimeout(() => {
         settle(() => {
-          log.error('stockfish timed out, killing it', { command: spec.command })
+          getLogger().error('stockfish timed out, killing it', { command: spec.command })
           this.child?.kill('SIGKILL')
           reject(new EngineTimeoutError(spec.timeoutMessage))
         })
@@ -214,10 +206,10 @@ export class UciEngine {
     this.onProcessLoss = undefined
 
     if (this.shuttingDown) {
-      log.info('stockfish stopped', { reason })
+      getLogger().info('stockfish stopped', { reason })
       return
     }
-    log.error('stockfish ended unexpectedly; the next request will start a fresh engine', { reason })
+    getLogger().error('stockfish ended unexpectedly; the next request will start a fresh engine', { reason })
     onProcessLoss?.(new EngineError(`Engine ${reason}`))
   }
 

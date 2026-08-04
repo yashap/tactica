@@ -1,6 +1,7 @@
+import { InternalFastifyAppBuilder } from '@tactica/fastify-utils'
+import { getLogger } from '@tactica/logging'
 import { config } from './config.js'
-import { log } from './log.js'
-import { buildServer } from './server.js'
+import { registerEvaluateRoutes } from './registerEvaluateRoutes.js'
 import { UciEngine } from './UciEngine.js'
 
 const start = async (): Promise<void> => {
@@ -17,24 +18,30 @@ const start = async (): Promise<void> => {
   // binary is missing or broken we want to fail loudly at startup rather than serve a broken /health.
   await engine.start()
 
-  const server = buildServer(engine)
-  await new Promise<void>((resolve) => server.listen(config.port, config.host, resolve))
-  log.info(`stockfish service listening on http://${config.host}:${config.port}`)
+  const app = await InternalFastifyAppBuilder.build({
+    registerRoutes: async (instance) => {
+      await registerEvaluateRoutes(instance, engine)
+    },
+  })
+
+  await app.listen({ port: config.port, host: config.host })
+  getLogger().info(`stockfish listening on http://${config.host}:${config.port}`)
 
   let shuttingDown = false
   const shutdown = (signal: string): void => {
     if (shuttingDown) return
     shuttingDown = true
-    log.info('shutting down', { signal })
-    server.close(() => {
-      void engine.stop().then(() => process.exit(0))
-    })
+    getLogger().info('Shutting down', { signal })
+    void app
+      .close()
+      .then(() => engine.stop())
+      .then(() => process.exit(0))
   }
   process.on('SIGTERM', () => shutdown('SIGTERM'))
   process.on('SIGINT', () => shutdown('SIGINT'))
 }
 
 start().catch((error: unknown) => {
-  log.error('failed to start stockfish service', { err: (error as Error).message })
+  getLogger().error('Failed to start stockfish', { err: (error as Error).message })
   process.exit(1)
 })

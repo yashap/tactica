@@ -1,5 +1,8 @@
+import { getLogger } from '@tactica/logging'
+import { type EvaluateResponse } from '@tactica/stockfish-contract'
 import assert from 'node:assert/strict'
-import { log } from './log.js'
+
+const log = getLogger()
 
 /**
  * End-to-end check against a *running* service (normally the Docker container, started by
@@ -14,19 +17,6 @@ const baseUrl = process.env['STOCKFISH_URL'] ?? 'http://localhost:3503'
  * assertions hold at any search depth and the test can't flake on a slow machine.
  */
 const MATE_IN_ONE_FEN = '6k1/5ppp/8/8/8/8/5PPP/R5K1 w - - 0 1'
-
-interface EngineLine {
-  multipv: number
-  depth: number
-  pvUci: string[]
-  cp?: number
-  mate?: number
-}
-
-interface EvaluateResponse {
-  bestMoveUci: string | null
-  lines: EngineLine[]
-}
 
 const evaluate = async (body: unknown): Promise<{ status: number; json: unknown }> => {
   const response = await fetch(`${baseUrl}/evaluate`, {

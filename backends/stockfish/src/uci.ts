@@ -1,24 +1,13 @@
+import { type EngineLine } from '@tactica/stockfish-contract'
+
 /**
  * Parsing of the UCI protocol's engine-to-us messages. Pure functions only — all of this service's
  * protocol knowledge lives here (and in the command strings `UciEngine` sends), so nothing
  * downstream ever has to understand UCI.
+ *
+ * The shape these produce is the contract's `EngineLine`, so what the engine says and what we return
+ * over HTTP can't drift apart.
  */
-
-export interface EngineLine {
-  /** 1-based principal-variation rank; 1 is the engine's preferred line. */
-  multipv: number
-  /** Search depth the line was reported at. */
-  depth: number
-  /** The line's moves in UCI notation (e.g. `['e2e4', 'e7e5']`); the first is the move to play. */
-  pvUci: string[]
-  /**
-   * Centipawn score **from the perspective of the side to move in the evaluated position** — that
-   * is what UCI reports, and it is deliberately not normalized here. Absent when `mate` is set.
-   */
-  cp?: number
-  /** Moves until mate, side-to-move-relative: positive = delivering mate, negative = being mated. */
-  mate?: number
-}
 
 const toInt = (token: string | undefined): number | undefined => {
   if (token === undefined) return undefined
