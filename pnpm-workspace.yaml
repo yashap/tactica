@@ -5,23 +5,21 @@ packages:
   - 'e2e-tests-web'
   - 'e2e-tests-mobile'
 
-# Supply-chain protection: refuse to resolve any version published less than a day ago, so a
-# compromised release has time to be spotted and yanked before it can enter our lockfile. This is
-# pnpm 11's default, set explicitly so the intent is visible and survives future default changes.
-# Applies to transitive dependencies too. Add `minimumReleaseAgeExclude` if a package ever needs to
-# be taken immediately (it accepts name patterns and version specs).
-minimumReleaseAge: 1440
+# Supply-chain protection: refuse to resolve any version published less than this many minutes ago, so a compromised
+# release has time to be spotted and yanked before it can enter our lockfile. This is pnpm 11's default, set explicitly
+# so the intent is visible and survives future default changes. Applies to transitive dependencies too. Add
+# `minimumReleaseAgeExclude` if a package ever needs to be taken immediately (it accepts name patterns and version
+# specs).
+minimumReleaseAge: 2880
 
-# Dependencies allowed to run install/postinstall scripts. pnpm blocks them by default — an install
-# script is the most direct way a compromised package gets to execute code on a dev machine or in
-# CI, so this list should stay as short as it currently is. Everything not listed is silently
-# skipped; run `pnpm approve-builds` to review anything new that shows up.
+# Dependencies allowed to run install/postinstall scripts. pnpm blocks them by default — an install script is the most
+# direct way a compromised package gets to execute code on a dev machine or in CI, so this list should stay as short as
+# it currently is. Everything not listed is silently skipped; run `pnpm approve-builds` to review anything new that
+# shows up.
 allowBuilds:
   # Links the platform-specific esbuild binary. Transitive, via vite/vitest/tsx.
   esbuild: true
 
-# Carried over from the .npmrc these replaced (pnpm 11 restricts .npmrc to auth/registry settings).
-# All three currently match pnpm's own defaults; they're kept explicit to pin the behaviour.
 autoInstallPeers: true
 strictPeerDependencies: false
 shamefullyHoist: false
