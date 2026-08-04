@@ -50,8 +50,7 @@ jobs:
       - run: pnpm test
 
   stockfish-smoke:
-    # Builds the engine image and asserts against a real Stockfish over HTTP. Its own job because
-    # `pnpm test` stays hermetic — the unit suites need neither Docker nor the engine binary.
+    # Builds the engine image and asserts against a real Stockfish over HTTP
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -89,9 +88,7 @@ jobs:
       - name: Start dev Postgres and run migrations
         run: pnpm db:migrate-up
 
-      - name: Start backends — tactica-core (3501), SuperTokens (3567), stockfish (3503)
-        # serve:backend runs all three serve tasks via turbo (supertokens and stockfish are
-        # registered as sidecars of tactica-core's serve task)
+      - name: Start backends
         run: nohup pnpm serve:backend > /tmp/backends.log 2>&1 &
         env:
           # Never hit the real chess.com API in CI — the Playwright globalSetup starts a local
