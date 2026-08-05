@@ -1,4 +1,4 @@
-import { InternalFastifyAppBuilder } from '@tactica/fastify-utils'
+import { FastifyAppBuilder } from '@tactica/fastify-utils'
 import { getLogger } from '@tactica/logging'
 import { config } from './config.js'
 import { registerEvaluateRoutes } from './registerEvaluateRoutes.js'
@@ -18,7 +18,8 @@ const start = async (): Promise<void> => {
   // binary is missing or broken we want to fail loudly at startup rather than serve a broken /health.
   await engine.start()
 
-  const app = await InternalFastifyAppBuilder.build({
+  const app = await FastifyAppBuilder.build({
+    kind: 'internal',
     registerRoutes: async (instance) => {
       await registerEvaluateRoutes(instance, engine)
     },

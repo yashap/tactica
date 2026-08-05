@@ -5,6 +5,7 @@ export default defineConfig({
     conditions: ['development', 'import', 'node'],
   },
   test: {
+    setupFiles: ['./src/test/setup.ts'],
     passWithNoTests: true,
   },
 })

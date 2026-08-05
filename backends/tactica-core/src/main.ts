@@ -30,6 +30,7 @@ const start = async (): Promise<void> => {
   })
 
   const app = await FastifyAppBuilder.build({
+    kind: 'userFacing',
     websiteDomain: config.websiteDomain,
     registerRoutes: async (instance) => {
       // Gate every /tactica-core/* path behind SuperTokens session verification. The /auth/*
