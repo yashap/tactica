@@ -11,7 +11,8 @@
     "clean": "rm -rf dist .turbo .tsbuildinfo",
     "format": "eslint \"src/**/*.ts\" --fix",
     "lint": "tsc --noEmit && eslint \"src/**/*.ts\"",
-    "serve": "pnpm build && ../../tools/scripts/serve_stockfish.sh",
+    "//serve": "Just the script, no `pnpm build &&` prefix — turbo builds first via dependsOn in turbo.json, and an extra process here breaks signal delivery on shutdown.",
+    "serve": "../../tools/scripts/serve_stockfish.sh",
     "start": "node dist/server.cjs",
     "test": "vitest run --passWithNoTests",
     "test:smoke": "pnpm build && ../../tools/scripts/stockfish_smoke_test.sh"

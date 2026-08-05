@@ -1,0 +1,14 @@
+{
+  "$schema": "https://turborepo.org/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "serve": {
+      "cache": false,
+      "persistent": true,
+      // Build the bundle before serving, so `serve` itself can be *just* the shell script. Chaining
+      // `pnpm build && ...` inside the script put an extra pnpm process between turbo and the
+      // container, which swallowed shutdown signals.
+      "dependsOn": ["build"]
+    }
+  }
+}

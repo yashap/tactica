@@ -30,13 +30,39 @@ const start = async (): Promise<void> => {
 
   let shuttingDown = false
   const shutdown = (signal: string): void => {
-    if (shuttingDown) return
+    // A second signal shouldn't restart the sequence, but it also shouldn't be ignored — if someone
+    // is pressing Ctrl+C again, they want out now.
+    if (shuttingDown) {
+      getLogger().warn('Second shutdown signal, exiting immediately', { signal })
+      process.exit(1)
+    }
     shuttingDown = true
-    getLogger().info('Shutting down', { signal })
-    void app
-      .close()
-      .then(() => engine.stop())
-      .then(() => process.exit(0))
+    const logger = getLogger()
+    logger.info('Shutting down', { signal })
+
+    // Backstop: nothing below is allowed to keep the process alive indefinitely. Without this, a
+    // close() that hangs or rejects would leave the container running until something SIGKILLs it —
+    // which is exactly how a stuck `pnpm serve:backend` shutdown looks from the outside. unref'd so
+    // it never itself delays an otherwise-finished exit.
+    const watchdog = setTimeout(() => {
+      logger.error('Graceful shutdown timed out, exiting anyway', {
+        deadlineMs: config.shutdownDeadlineMs,
+      })
+      process.exit(1)
+    }, config.shutdownDeadlineMs)
+    watchdog.unref()
+
+    void (async () => {
+      try {
+        await app.close()
+        await engine.stop()
+      } catch (error) {
+        logger.error('Error while shutting down, exiting anyway', { err: (error as Error).message })
+      } finally {
+        clearTimeout(watchdog)
+        process.exit(0)
+      }
+    })()
   }
   process.on('SIGTERM', () => shutdown('SIGTERM'))
   process.on('SIGINT', () => shutdown('SIGINT'))
