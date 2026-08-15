@@ -22,6 +22,13 @@
       "when": 1785023968473,
       "tag": "0002_drop_todo",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1786825415230,
+      "tag": "0003_puzzles",
+      "breakpoints": true
     }
   ]
 }

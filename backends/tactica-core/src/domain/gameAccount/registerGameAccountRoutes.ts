@@ -6,12 +6,14 @@ import type { FastifyInstance } from 'fastify'
 import { type GameAccountRow } from '../../db/schema.js'
 import { type JobQueue } from '../../jobs/jobQueue.js'
 import { type GameRepository } from '../game/GameRepository.js'
+import { type PuzzleRepository } from '../puzzle/PuzzleRepository.js'
 import { type GameSourceRegistry } from '../gameSource/GameSource.js'
 import { type GameAccountRepository } from './GameAccountRepository.js'
 
 export interface GameAccountRoutesDeps {
   gameAccountRepository: GameAccountRepository
   gameRepository: GameRepository
+  puzzleRepository: PuzzleRepository
   gameSources: GameSourceRegistry
   jobQueue: JobQueue
 }
@@ -28,13 +30,18 @@ const toDto = (row: GameAccountRow, stats: GameAccountStats): GameAccountWithSta
 })
 
 export const registerGameAccountRoutes = async (app: FastifyInstance, deps: GameAccountRoutesDeps): Promise<void> => {
-  const { gameAccountRepository, gameRepository, gameSources, jobQueue } = deps
+  const { gameAccountRepository, gameRepository, puzzleRepository, gameSources, jobQueue } = deps
   const s = initServer()
 
-  const buildStats = async (userId: string, account: GameAccountRow): Promise<GameAccountStats> => ({
-    gamesImported: await gameRepository.countByGameAccount(userId, account.id),
-    syncActive: account.lastSyncJobId ? await jobQueue.isImportJobActive(account.lastSyncJobId) : false,
-  })
+  const buildStats = async (userId: string, account: GameAccountRow): Promise<GameAccountStats> => {
+    const [gamesImported, gamesAnalyzed, puzzleCount, syncActive] = await Promise.all([
+      gameRepository.countByGameAccount(userId, account.id),
+      gameRepository.countAnalyzedByGameAccount(userId, account.id),
+      puzzleRepository.countByGameAccount(userId, account.id),
+      account.lastSyncJobId ? jobQueue.isImportJobActive(account.lastSyncJobId) : Promise.resolve(false),
+    ])
+    return { gamesImported, gamesAnalyzed, puzzleCount, syncActive }
+  }
 
   const withStats = async (userId: string, account: GameAccountRow): Promise<GameAccountWithStats> =>
     toDto(account, await buildStats(userId, account))

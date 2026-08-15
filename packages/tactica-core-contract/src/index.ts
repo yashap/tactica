@@ -1,4 +1,5 @@
 export * from './lib/contract/game.js'
 export * from './lib/contract/gameAccount.js'
+export * from './lib/contract/puzzle.js'
 export * from './lib/contract/root.js'
 export * from './lib/contract/session.js'
