@@ -91,6 +91,9 @@ jobs:
       - name: Start backends
         run: nohup pnpm serve:backend > /tmp/backends.log 2>&1 &
         env:
+          # Keep analysis fast enough for CI — the real budgets are seconds per game
+          ANALYSIS_SCAN_MOVETIME_MS: '10'
+          ANALYSIS_DEEP_MOVETIME_MS: '20'
           # Never hit the real chess.com API in CI — the Playwright globalSetup starts a local
           # fixture server (e2e-tests-web/src/fixtures/chesscomFixtureServer.ts) on this port
           CHESSCOM_API_URL: http://localhost:4599
@@ -121,6 +124,7 @@ jobs:
           wait_for "tactica-core" "http://localhost:3501" 45
           # Generous: this one has to build its Docker image before the container can start
           wait_for "stockfish" "http://localhost:3503/health" 120
+          wait_for "tactica-analysis" "http://localhost:3502/health" 60
           wait_for "Expo web" "http://localhost:8081" 150
 
       - name: Warm Metro bundle

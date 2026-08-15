@@ -1,0 +1,5 @@
+{
+  "extends": "@tactica/tsconfig/library.build.json",
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "**/*.spec.ts", "**/*.test.ts"]
+}
