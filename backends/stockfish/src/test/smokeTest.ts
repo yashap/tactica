@@ -11,21 +11,21 @@ import assert from 'node:assert/strict'
  * `dist/` — output that only exists once that package has been built. CI installs and builds only
  * this package, so importing e.g. `@tactica/logging` here fails with ERR_MODULE_NOT_FOUND even
  * though the container itself is perfectly healthy. (The type-only import above is erased at
- * compile time, so it costs nothing at runtime.) Hence the hand-rolled logging below.
+ * compile time, so it costs nothing at runtime.) Hence the local logging helper below rather than `@tactica/logging`.
  */
 
 type LogFields = Record<string, unknown>
 
-// Not `console.log` — the shared eslint config only permits console.warn/error.
 const format = (message: string, fields?: LogFields): string =>
-  `${message}${fields ? ` ${JSON.stringify(fields)}` : ''}\n`
+  `${message}${fields ? ` ${JSON.stringify(fields)}` : ''}`
 
 const log = {
   info: (message: string, fields?: LogFields): void => {
-    process.stdout.write(format(message, fields))
+    // eslint-disable-next-line no-console -- a CLI test harness; its stdout is the test report
+    console.log(format(message, fields))
   },
   error: (message: string, fields?: LogFields): void => {
-    process.stderr.write(format(message, fields))
+    console.error(format(message, fields))
   },
 }
 

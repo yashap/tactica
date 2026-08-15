@@ -41,7 +41,7 @@ if [ "$ready" != '1' ]; then
     exit 1
 fi
 
-if ! STOCKFISH_URL="http://localhost:$host_port" node "$repo_root/backends/stockfish/dist/smokeTest.js"; then
+if ! STOCKFISH_URL="http://localhost:$host_port" node "$repo_root/backends/stockfish/dist/test/smokeTest.js"; then
     echo >&2 "smoke test failed — container logs follow:"
     docker logs "$container_name" >&2 2>&1 || true
     exit 1
