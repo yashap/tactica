@@ -38,9 +38,7 @@ const PuzzleRow: React.FC<{ puzzle: Puzzle }> = ({ puzzle }) => (
 const PuzzlesScreen: React.FC = () => {
   const accounts = useGameAccounts()
   // Analysis fills this list in over time, so keep polling while games are still queued
-  const analysisInProgress = (accounts.data ?? []).some(
-    (account) => account.stats.gamesAnalyzed < account.stats.gamesImported,
-  )
+  const analysisInProgress = (accounts.data ?? []).some((account) => account.stats.gamesPendingAnalysis > 0)
   const puzzles = usePuzzles({ analysisInProgress })
 
   return (
