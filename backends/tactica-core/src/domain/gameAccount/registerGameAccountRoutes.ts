@@ -34,13 +34,14 @@ export const registerGameAccountRoutes = async (app: FastifyInstance, deps: Game
   const s = initServer()
 
   const buildStats = async (userId: string, account: GameAccountRow): Promise<GameAccountStats> => {
-    const [gamesImported, gamesAnalyzed, puzzleCount, syncActive] = await Promise.all([
+    const [gamesImported, gamesAnalyzed, gamesPendingAnalysis, puzzleCount, syncActive] = await Promise.all([
       gameRepository.countByGameAccount(userId, account.id),
       gameRepository.countAnalyzedByGameAccount(userId, account.id),
+      gameRepository.countPendingAnalysisByGameAccount(userId, account.id),
       puzzleRepository.countByGameAccount(userId, account.id),
       account.lastSyncJobId ? jobQueue.isImportJobActive(account.lastSyncJobId) : Promise.resolve(false),
     ])
-    return { gamesImported, gamesAnalyzed, puzzleCount, syncActive }
+    return { gamesImported, gamesAnalyzed, gamesPendingAnalysis, puzzleCount, syncActive }
   }
 
   const withStats = async (userId: string, account: GameAccountRow): Promise<GameAccountWithStats> =>

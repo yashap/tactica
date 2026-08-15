@@ -12,9 +12,7 @@ const SYNC_POLL_INTERVAL_MS = 2500
  * not yet analysed. Analysis runs long after the import finishes, so polling has to outlast it.
  */
 const anyWorkInProgress = (accounts: GameAccountWithStats[] | undefined): boolean =>
-  (accounts ?? []).some(
-    (account) => account.stats.syncActive || account.stats.gamesAnalyzed < account.stats.gamesImported,
-  )
+  (accounts ?? []).some((account) => account.stats.syncActive || account.stats.gamesPendingAnalysis > 0)
 
 /**
  * The user's linked game accounts. Polls while any account has work in flight (importing, or games

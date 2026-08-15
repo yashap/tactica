@@ -3,13 +3,13 @@ import { buildPaginatedResponse, parsePagination } from '@tactica/pagination'
 import { type Puzzle, tacticaCoreContract } from '@tactica/tactica-core-contract'
 import { initServer } from '@ts-rest/fastify'
 import type { FastifyInstance } from 'fastify'
-import { parsePuzzleOrdering, type PuzzleRepository, type PuzzleWithGame } from './PuzzleRepository.js'
+import { parsePuzzleOrdering, type PuzzleRepository, type SolvablePuzzle } from './PuzzleRepository.js'
 
 export interface PuzzleRoutesDeps {
   puzzleRepository: PuzzleRepository
 }
 
-const toDto = (row: PuzzleWithGame): Puzzle => ({
+const toDto = (row: SolvablePuzzle): Puzzle => ({
   id: row.id,
   userId: row.userId,
   gameId: row.gameId,
@@ -27,11 +27,20 @@ const toDto = (row: PuzzleWithGame): Puzzle => ({
   winProbBefore: row.winProbBefore,
   winProbAfter: row.winProbAfter,
   severity: row.severity,
+  solved: row.solved,
   opponentUsername: row.opponentUsername,
   playedAt: row.playedAt.toISOString(),
   createdAt: row.createdAt.toISOString(),
   updatedAt: row.updatedAt.toISOString(),
 })
+
+/**
+ * A move counts if it's the engine's pick or any of the near-equal alternatives it found. Positions
+ * often have several equally good ideas, and failing someone for finding a different one would be
+ * both wrong and infuriating.
+ */
+const isAcceptableMove = (puzzle: SolvablePuzzle, moveUci: string): boolean =>
+  moveUci === puzzle.bestMoveUci || puzzle.acceptableMovesUci.includes(moveUci)
 
 export const registerPuzzleRoutes = async (app: FastifyInstance, deps: PuzzleRoutesDeps): Promise<void> => {
   const s = initServer()
@@ -50,6 +59,32 @@ export const registerPuzzleRoutes = async (app: FastifyInstance, deps: PuzzleRou
         return { status: 404, body: { message: 'Puzzle not found', code: 'NotFoundError' } }
       }
       return { status: 200, body: toDto(row) }
+    },
+    createAttempt: async ({ params, body, request }) => {
+      const userId = getSessionUserId(request)
+      const puzzle = await deps.puzzleRepository.findById(userId, params.id)
+      if (!puzzle) {
+        return { status: 404, body: { message: 'Puzzle not found', code: 'NotFoundError' } }
+      }
+      // Graded here rather than trusting the client's verdict: the client grades too, for instant
+      // feedback, but this is what actually decides whether the puzzle counts as solved.
+      const correct = isAcceptableMove(puzzle, body.moveUci)
+      const attempt = await deps.puzzleRepository.createAttempt({
+        userId,
+        puzzleId: puzzle.id,
+        moveUci: body.moveUci,
+        correct,
+      })
+      return {
+        status: 201,
+        body: {
+          id: attempt.id,
+          puzzleId: attempt.puzzleId,
+          moveUci: attempt.moveUci,
+          correct: attempt.correct,
+          createdAt: attempt.createdAt.toISOString(),
+        },
+      }
     },
   })
 

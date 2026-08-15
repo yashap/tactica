@@ -11,6 +11,12 @@ export const GameAccountStatsSchema = z.object({
   gamesImported: z.number().int().nonnegative(),
   /** Games whose analysis has finished — the rest are still queued or in flight. */
   gamesAnalyzed: z.number().int().nonnegative(),
+  /**
+   * Games still queued for or undergoing analysis. Reported explicitly rather than derived from
+   * `gamesImported - gamesAnalyzed`, because that arithmetic counts *failed* games as pending
+   * forever — which would leave the UI spinning and polling with nothing left to wait for.
+   */
+  gamesPendingAnalysis: z.number().int().nonnegative(),
   /** Puzzles found across all of this account's games. */
   puzzleCount: z.number().int().nonnegative(),
   /** `true` while an import job for this account is queued or running. */

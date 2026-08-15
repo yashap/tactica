@@ -49,6 +49,21 @@ export class GameRepository {
       .where(and(eq(gameTable.userId, userId), eq(gameTable.id, id)))
   }
 
+  /** Games still queued for or undergoing analysis — deliberately excludes failures. */
+  public async countPendingAnalysisByGameAccount(userId: string, gameAccountId: string): Promise<number> {
+    const [row] = await this.db
+      .select({ value: count() })
+      .from(gameTable)
+      .where(
+        and(
+          eq(gameTable.userId, userId),
+          eq(gameTable.gameAccountId, gameAccountId),
+          inArray(gameTable.analysisStatus, ['pending', 'analyzing']),
+        ),
+      )
+    return row?.value ?? 0
+  }
+
   /** Games whose analysis has finished, for the account's progress display. */
   public async countAnalyzedByGameAccount(userId: string, gameAccountId: string): Promise<number> {
     const [row] = await this.db

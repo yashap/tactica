@@ -1,6 +1,7 @@
 import { standardFields } from '@tactica/drizzle-utils'
 import { type EngineLine, type Evaluation } from '@tactica/tactica-core-contract'
 import {
+  boolean,
   doublePrecision,
   index,
   integer,
@@ -129,3 +130,29 @@ export const puzzleTable = pgTable(
 
 export type PuzzleRow = typeof puzzleTable.$inferSelect
 export type NewPuzzleRow = typeof puzzleTable.$inferInsert
+
+/**
+ * Every attempt at a puzzle, append-only. Kept as a log rather than a `solved` flag on the puzzle so
+ * that "tried three times before getting it" stays visible — useful for the coach later, and for any
+ * future sense of which mistakes keep recurring.
+ */
+export const puzzleAttemptTable = pgTable(
+  'PuzzleAttempt',
+  {
+    ...standardFields,
+    userId: uuid('userId').notNull(),
+    puzzleId: uuid('puzzleId')
+      .notNull()
+      .references(() => puzzleTable.id, { onDelete: 'cascade' }),
+    /** The move the user played, in UCI (including any promotion piece). */
+    moveUci: text('moveUci').notNull(),
+    correct: boolean('correct').notNull(),
+  },
+  (table) => [
+    index('PuzzleAttempt_userId_idx').on(table.userId),
+    index('PuzzleAttempt_puzzleId_idx').on(table.puzzleId),
+  ],
+)
+
+export type PuzzleAttemptRow = typeof puzzleAttemptTable.$inferSelect
+export type NewPuzzleAttemptRow = typeof puzzleAttemptTable.$inferInsert
