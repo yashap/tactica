@@ -1,5 +1,5 @@
 {
-  "name": "@tactica/fastify-utils",
+  "name": "@tactica/stockfish-contract",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -25,22 +25,13 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@fastify/cors": "^9.0.1",
-    "@fastify/formbody": "^7.4.0",
-    "@tactica/correlation-id-propagator": "workspace:*",
-    "@tactica/errors": "workspace:*",
-    "@tactica/logging": "workspace:*",
+    "@tactica/api-client-utils": "workspace:*",
     "@ts-rest/core": "^3.52.1",
-    "@ts-rest/fastify": "^3.52.1",
-    "fastify": "^4.28.1",
-    "fastify-plugin": "^4.5.1",
-    "supertokens-node": "^23.0.1",
     "zod": "^3.24.1"
   },
   "devDependencies": {
     "@tactica/eslint-config": "workspace:*",
     "@tactica/tsconfig": "workspace:*",
-    "@types/node": "^22.10.0",
     "eslint": "^9.34.0",
     "typescript": "^5.9.2",
     "vitest": "^2.1.8"

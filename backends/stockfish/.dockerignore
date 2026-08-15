@@ -1,0 +1,3 @@
+# The image needs exactly one file: the bundled service. See the Dockerfile comment.
+*
+!dist/server.cjs

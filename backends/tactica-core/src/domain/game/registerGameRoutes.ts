@@ -1,4 +1,4 @@
-import { getSessionUserId } from '@tactica/fastify-utils'
+import { getSessionUserId, tacticaRequestValidationErrorHandler } from '@tactica/fastify-utils'
 import { buildPaginatedResponse, parsePagination } from '@tactica/pagination'
 import { type Game, type GameWithPgn, tacticaCoreContract } from '@tactica/tactica-core-contract'
 import { initServer } from '@ts-rest/fastify'
@@ -49,5 +49,7 @@ export const registerGameRoutes = async (app: FastifyInstance, deps: GameRoutesD
     },
   })
 
-  await app.register(s.plugin(router))
+  await app.register(s.plugin(router), {
+    requestValidationErrorHandler: tacticaRequestValidationErrorHandler,
+  })
 }
