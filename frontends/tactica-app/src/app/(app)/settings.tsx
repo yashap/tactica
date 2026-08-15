@@ -50,6 +50,8 @@ const LinkedAccountCard: React.FC<{ account: GameAccountWithStats }> = ({ accoun
   const sync = useSyncGameAccount()
   const unlink = useUnlinkGameAccount()
   const { stats } = account
+  // Imported games that analysis hasn't finished with yet — the queue draining in the background
+  const analysisPending = Math.max(stats.gamesImported - stats.gamesAnalyzed, 0)
 
   return (
     <View style={styles.card}>
@@ -60,10 +62,22 @@ const LinkedAccountCard: React.FC<{ account: GameAccountWithStats }> = ({ accoun
       <Text testID="gamesImportedText" style={styles.stat}>
         {stats.gamesImported} {stats.gamesImported === 1 ? 'game' : 'games'} imported
       </Text>
+      <Text testID="gamesAnalyzedText" style={styles.stat}>
+        {stats.gamesAnalyzed} analyzed
+        {analysisPending > 0 ? ` · ${analysisPending} to go` : ''}
+      </Text>
+      <Text testID="puzzleCountText" style={styles.stat}>
+        {stats.puzzleCount} {stats.puzzleCount === 1 ? 'puzzle' : 'puzzles'} found
+      </Text>
       {stats.syncActive ? (
         <View style={styles.syncRow} testID="syncActiveIndicator">
           <ActivityIndicator size="small" color="#D9A441" />
           <Text style={styles.syncText}>Importing games…</Text>
+        </View>
+      ) : analysisPending > 0 ? (
+        <View style={styles.syncRow} testID="analysisActiveIndicator">
+          <ActivityIndicator size="small" color="#D9A441" />
+          <Text style={styles.syncText}>Analyzing games for blunders…</Text>
         </View>
       ) : (
         <Text style={styles.syncedText} testID="syncIdleIndicator">

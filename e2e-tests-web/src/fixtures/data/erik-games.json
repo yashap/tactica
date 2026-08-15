@@ -98,6 +98,26 @@
         "uuid": "fe696c00-fcba-11db-8029-000000000000"
       },
       "eco": "https://www.chess.com/openings/Pirc-Defense-Classical-Variation-4...Bg7-5.Be3-a6"
+    },
+    {
+      "url": "https://www.chess.com/game/live/e2e-hanging-queen",
+      "uuid": "e2e00000-0000-4000-8000-000000000001",
+      "pgn": "[Event \"e2e fixture\"]\n[Site \"Chess.com\"]\n[Date \"2026.06.15\"]\n[White \"erik\"]\n[Black \"blunder_bait\"]\n[Result \"0-1\"]\n[TimeControl \"600\"]\n\n1. e4 e5 2. Qh5 Nc6 3. Qxf7+ Kxf7 0-1\n",
+      "time_control": "600",
+      "end_time": 1781000000,
+      "rated": true,
+      "rules": "chess",
+      "time_class": "rapid",
+      "white": {
+        "username": "erik",
+        "result": "resigned",
+        "rating": 1500
+      },
+      "black": {
+        "username": "blunder_bait",
+        "result": "win",
+        "rating": 1500
+      }
     }
   ]
 }

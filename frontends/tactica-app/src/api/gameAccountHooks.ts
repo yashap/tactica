@@ -7,18 +7,24 @@ const GAME_ACCOUNTS_KEY = ['gameAccounts']
 /** How often to poll while an import is running, so progress counts tick up live. */
 const SYNC_POLL_INTERVAL_MS = 2500
 
-const anySyncActive = (accounts: GameAccountWithStats[] | undefined): boolean =>
-  (accounts ?? []).some((account) => account.stats.syncActive)
+/**
+ * True while there is still background work to reflect: an import in flight, or games imported but
+ * not yet analysed. Analysis runs long after the import finishes, so polling has to outlast it.
+ */
+const anyWorkInProgress = (accounts: GameAccountWithStats[] | undefined): boolean =>
+  (accounts ?? []).some(
+    (account) => account.stats.syncActive || account.stats.gamesAnalyzed < account.stats.gamesImported,
+  )
 
 /**
- * The user's linked game accounts. Polls while any account has an active import, then goes
- * quiet once everything is synced.
+ * The user's linked game accounts. Polls while any account has work in flight (importing, or games
+ * still queued for analysis), then goes quiet once everything has settled.
  */
 export const useGameAccounts = () =>
   useQuery({
     queryKey: GAME_ACCOUNTS_KEY,
     queryFn: () => tacticaCoreClient.gameAccounts.list(),
-    refetchInterval: (query) => (anySyncActive(query.state.data) ? SYNC_POLL_INTERVAL_MS : false),
+    refetchInterval: (query) => (anyWorkInProgress(query.state.data) ? SYNC_POLL_INTERVAL_MS : false),
   })
 
 export const useLinkGameAccount = () => {

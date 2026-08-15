@@ -7,7 +7,7 @@
 | M1 — Link chess.com account + raw game import              | ✅ Implemented |
 | M2 — stockfish service (Dockerized engine API)             | ✅ Implemented |
 | M3 — tactica-analysis service (blunder detection pipeline) | ✅ Implemented |
-| M4 — Pipeline integration → puzzles appear                 | Not started    |
+| M4 — Pipeline integration → puzzles appear                 | ✅ Implemented |
 | M5 — Puzzle-solving UI                                     | Not started    |
 | M6 — tactica-coach service + explanations UI               | Not started    |
 | M7 — Lichess source                                        | Not started    |
@@ -166,6 +166,14 @@ tactica-core :3501 ────ts-rest────▶ tactica-analysis :3502 ─
 
 - `Puzzle` table + migration; `analyze-game` pg-boss job in core: submit PGN via analysis client → poll status (2s interval, generous timeout) → persist `Puzzle` rows (`onConflictDoNothing`) + `Game.analysisStatus`/`moveEvals`; enqueue `analyze-game` per newly-imported game (hook into M1's import job); `puzzle.ts` contract (paginated list, get); account progress stats now include `gamesAnalyzed`/`puzzleCount`; settings screen shows analysis progress.
 - **Verify**: Vitest with a faked analysis client (submit/poll/persist, idempotent re-run, failure → `analysisStatus='failed'` + pg-boss retry); full-stack manual run with a real chess.com account; e2e — fixture archive containing one game with a known blunder + real tactica-analysis + stockfish container with `ANALYSIS_*_MOVETIME_MS=10` → assert puzzle count appears. (Fallback if engine-in-CI proves flaky: test-only seed endpoint — but try the real pipeline first.)
+- **Implementation notes (as built, August 2026)**:
+  - **The e2e fixture gained a synthetic game** where the player hangs his queen on move 3. Real recorded games make poor fixtures for "assert a puzzle appears", because whether the engine flags a mistake depends on how deep it searched and CI runs at ~10 ms movetimes. The synthetic one is unmissable at any depth, so the test is deterministic. The real pipeline runs in CI — no seed-endpoint fallback needed.
+  - **Puzzle shapes are re-declared in `tactica-core-contract`** rather than re-exported from the analysis contract. The analysis service is an internal detail; the app depends only on tactica-core, so a change over there gets absorbed by the mapping in `analyze-game` instead of breaking the public API.
+  - **`GameRepository.insertMany` now returns the inserted rows**, not a count, so the import job can queue analysis for exactly the new games. Re-importing the current month re-queues nothing.
+  - Polling, not callbacks: analysis calling us back would mean exposing an endpoint and handling retries in both directions. The job polls with a timeout and marks the game `failed` before rethrowing, so the UI stops showing it as in flight while pg-boss still retries.
+  - Puzzle inserts dedupe on `(gameId, ply)`, so a retry after a partial failure fills in what's missing rather than duplicating.
+  - Progress polling in the app had to outlast the import: analysis keeps running long after `syncActive` goes false, so the settings screen polls while `gamesAnalyzed < gamesImported` too.
+  - Verified end to end locally: 4 games imported → analysed one at a time → 2 puzzles, including `Qxf7+` (blunder, best `Bc4`) and a real game's `Na5` (mistake, best `Nd8`).
 
 ### M5 — Puzzle-solving UI
 

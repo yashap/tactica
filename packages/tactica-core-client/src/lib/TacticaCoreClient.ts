@@ -14,12 +14,18 @@ import {
   type Game,
   type GameAccountWithStats,
   type GameWithPgn,
+  type Puzzle,
   type SessionInfo,
   tacticaCoreContract,
 } from '@tactica/tactica-core-contract'
 
 export interface PaginatedGames {
   data: Game[]
+  pagination: { next?: string; previous?: string }
+}
+
+export interface PaginatedPuzzles {
+  data: Puzzle[]
   pagination: { next?: string; previous?: string }
 }
 
@@ -60,5 +66,13 @@ export class TacticaCoreClient {
 
     get: async (id: string): Promise<GameWithPgn | undefined> =>
       extractGetByIdResponse(this.client.games.get({ params: { id } })),
+  }
+
+  public readonly puzzles = {
+    list: async (pagination: PaginationRequestDto = {}): Promise<PaginatedPuzzles> =>
+      extractListResponse(this.client.puzzles.list({ query: pagination })),
+
+    get: async (id: string): Promise<Puzzle | undefined> =>
+      extractGetByIdResponse(this.client.puzzles.get({ params: { id } })),
   }
 }

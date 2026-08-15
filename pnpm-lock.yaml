@@ -159,6 +159,12 @@ importers:
       '@tactica/pagination':
         specifier: workspace:^
         version: link:../../packages/pagination
+      '@tactica/tactica-analysis-client':
+        specifier: workspace:*
+        version: link:../../packages/tactica-analysis-client
+      '@tactica/tactica-analysis-contract':
+        specifier: workspace:*
+        version: link:../../packages/tactica-analysis-contract
       '@tactica/tactica-core-contract':
         specifier: workspace:*
         version: link:../../packages/tactica-core-contract
