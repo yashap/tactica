@@ -37,7 +37,9 @@ const openHangingQueenPuzzle = async (page: Page): Promise<void> => {
   await expect(puzzle).toBeVisible({ timeout: 30_000 })
   await puzzle.click()
   await expect(page.getByTestId('puzzleScreen')).toBeVisible()
-  await expect(page.getByTestId('chessBoard')).toBeVisible()
+  // Scoped for the same reason as `move` below: the Play tab's board is still mounted and carries
+  // the same testID, so an unscoped locator is a strict-mode violation waiting to happen.
+  await expect(page.getByTestId('puzzleScreen').getByTestId('chessBoard')).toBeVisible()
 }
 
 /**
