@@ -1,0 +1,5 @@
+{
+  "extends": "@tactica/tsconfig/node-app.build.json",
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "**/*.spec.ts", "**/*.test.ts", "drizzle.config.ts"]
+}
