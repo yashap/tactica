@@ -59,6 +59,8 @@ export const PuzzleSchema = z.object({
   winProbBefore: z.number(),
   winProbAfter: z.number(),
   severity: PuzzleSeveritySchema,
+  /** True once the user has played an accepted move at least once. */
+  solved: z.boolean(),
   /** Context for the puzzle screen, denormalized from the game so the list needs one query. */
   opponentUsername: z.string(),
   playedAt: z.string().datetime(),
@@ -66,6 +68,21 @@ export const PuzzleSchema = z.object({
   updatedAt: z.string().datetime(),
 })
 export type Puzzle = z.infer<typeof PuzzleSchema>
+
+export const PuzzleAttemptSchema = z.object({
+  id: z.string().uuid(),
+  puzzleId: z.string().uuid(),
+  moveUci: z.string(),
+  correct: z.boolean(),
+  createdAt: z.string().datetime(),
+})
+export type PuzzleAttempt = z.infer<typeof PuzzleAttemptSchema>
+
+export const CreatePuzzleAttemptRequestSchema = z.object({
+  /** The move played, in UCI — including the promotion piece, e.g. `e7e8q`. */
+  moveUci: z.string().regex(/^[a-h][1-8][a-h][1-8][qrbn]?$/, 'Must be a UCI move such as e2e4 or e7e8q'),
+})
+export type CreatePuzzleAttemptRequest = z.infer<typeof CreatePuzzleAttemptRequestSchema>
 
 export const ListPuzzlesResponseSchema = z.object({
   data: z.array(PuzzleSchema),
@@ -86,5 +103,18 @@ export const puzzleContract = c.router({
     pathParams: z.object({ id: z.string().uuid() }),
     responses: ContractBuilder.buildGetResponses(PuzzleSchema),
     summary: 'Get a single puzzle',
+  },
+  /**
+   * The client already knows the answer (it ships in the puzzle, and these are the user's own
+   * games — there's nothing to cheat at), so it grades locally for instant feedback. The server
+   * grades again anyway, because that's what decides whether the puzzle counts as solved.
+   */
+  createAttempt: {
+    method: 'POST',
+    path: '/puzzles/:id/attempts',
+    pathParams: z.object({ id: z.string().uuid() }),
+    body: CreatePuzzleAttemptRequestSchema,
+    responses: ContractBuilder.buildPostResponses(PuzzleAttemptSchema),
+    summary: 'Record an attempt at a puzzle; the server decides whether it was correct',
   },
 })
