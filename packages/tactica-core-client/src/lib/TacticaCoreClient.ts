@@ -14,7 +14,9 @@ import {
   type Game,
   type GameAccountWithStats,
   type GameWithPgn,
+  type CreatePuzzleAttemptRequest,
   type Puzzle,
+  type PuzzleAttempt,
   type SessionInfo,
   tacticaCoreContract,
 } from '@tactica/tactica-core-contract'
@@ -74,5 +76,8 @@ export class TacticaCoreClient {
 
     get: async (id: string): Promise<Puzzle | undefined> =>
       extractGetByIdResponse(this.client.puzzles.get({ params: { id } })),
+
+    createAttempt: async (id: string, request: CreatePuzzleAttemptRequest): Promise<PuzzleAttempt> =>
+      extractPostResponse(this.client.puzzles.createAttempt({ params: { id }, body: request })),
   }
 }

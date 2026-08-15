@@ -1,8 +1,16 @@
 import { InputValidationError } from '@tactica/errors'
 import { type Cursor, type Pagination, type ParseOrdering } from '@tactica/pagination'
-import { and, asc, count, desc, eq, gt, lt, or, type SQL } from 'drizzle-orm'
+import { and, asc, count, desc, eq, gt, inArray, lt, or, type SQL } from 'drizzle-orm'
 import { type Db } from '../../db/client.js'
-import { gameTable, type NewPuzzleRow, type PuzzleRow, puzzleTable } from '../../db/schema.js'
+import {
+  gameTable,
+  type NewPuzzleAttemptRow,
+  type NewPuzzleRow,
+  type PuzzleAttemptRow,
+  puzzleAttemptTable,
+  type PuzzleRow,
+  puzzleTable,
+} from '../../db/schema.js'
 
 export type PuzzleOrderBy = 'createdAt' | 'playedAt'
 
@@ -10,6 +18,11 @@ export type PuzzleOrderBy = 'createdAt' | 'playedAt'
 export interface PuzzleWithGame extends PuzzleRow {
   opponentUsername: string
   playedAt: Date
+}
+
+/** As above, plus whether the user has ever got this one right. */
+export interface SolvablePuzzle extends PuzzleWithGame {
+  solved: boolean
 }
 
 export const parsePuzzleOrdering: ParseOrdering<PuzzleOrderBy, Date> = ({ orderBy, lastOrderValueSeen }) => {
@@ -40,17 +53,18 @@ export class PuzzleRepository {
     return inserted.length
   }
 
-  public async findById(userId: string, id: string): Promise<PuzzleWithGame | undefined> {
+  public async findById(userId: string, id: string): Promise<SolvablePuzzle | undefined> {
     const rows = await this.selectWithGame()
       .where(and(eq(puzzleTable.userId, userId), eq(puzzleTable.id, id)))
       .limit(1)
-    return rows[0]
+    const [withSolved] = await this.withSolved(rows)
+    return withSolved
   }
 
   public async list(
     userId: string,
     pagination: Pagination<PuzzleOrderBy> | Cursor<PuzzleOrderBy, Date>,
-  ): Promise<PuzzleWithGame[]> {
+  ): Promise<SolvablePuzzle[]> {
     const orderColumn = pagination.orderBy === 'playedAt' ? gameTable.playedAt : puzzleTable.createdAt
     const direction = pagination.orderDirection === 'asc' ? asc : desc
     const conditions: (SQL | undefined)[] = [eq(puzzleTable.userId, userId)]
@@ -63,10 +77,42 @@ export class PuzzleRepository {
         ),
       )
     }
-    return this.selectWithGame()
+    const rows = await this.selectWithGame()
       .where(and(...conditions))
       .orderBy(direction(orderColumn), direction(puzzleTable.id))
       .limit(pagination.limit)
+    return this.withSolved(rows)
+  }
+
+  /** Record an attempt. Append-only — a puzzle can be tried as many times as the user likes. */
+  public async createAttempt(row: NewPuzzleAttemptRow): Promise<PuzzleAttemptRow> {
+    const [created] = await this.db.insert(puzzleAttemptTable).values(row).returning()
+    if (!created) {
+      throw new Error('Failed to insert puzzle attempt')
+    }
+    return created
+  }
+
+  /**
+   * Annotate a page of puzzles with whether each has been solved. Done as one extra query over the
+   * page's ids rather than a correlated subquery per row — simpler to read, and the page is small.
+   */
+  private async withSolved(rows: PuzzleWithGame[]): Promise<SolvablePuzzle[]> {
+    if (rows.length === 0) return []
+    const solvedRows = await this.db
+      .selectDistinct({ puzzleId: puzzleAttemptTable.puzzleId })
+      .from(puzzleAttemptTable)
+      .where(
+        and(
+          eq(puzzleAttemptTable.correct, true),
+          inArray(
+            puzzleAttemptTable.puzzleId,
+            rows.map((row) => row.id),
+          ),
+        ),
+      )
+    const solved = new Set(solvedRows.map((row) => row.puzzleId))
+    return rows.map((row) => ({ ...row, solved: solved.has(row.id) }))
   }
 
   public async countByGameAccount(userId: string, gameAccountId: string): Promise<number> {

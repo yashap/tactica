@@ -1,18 +1,28 @@
 import React, { useCallback, useState } from 'react'
 import { type LayoutChangeEvent, StyleSheet, Text, View } from 'react-native'
 import { CapturedPieces } from './CapturedPieces'
+import { PromotionPicker } from './PromotionPicker'
 import { Square } from './Square'
-import { type Square as SquareName, useChessGame } from './useChessGame'
+import { type ChessGame, type Square as SquareName, useChessGame } from './useChessGame'
 
 const FILE_LABELS = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
 const MAX_BOARD_SIZE = 480
 
 export interface ChessboardProps {
   onMove?: (san: string) => void
+  /**
+   * Drive the board from outside. Puzzles need this so the screen can grade the move; the hotseat
+   * play screen omits it and lets the board own its own game.
+   */
+  game?: ChessGame
+  /** Which side sits at the bottom. Purely a view transform — the game state is unaffected. */
+  orientation?: 'white' | 'black'
 }
 
-export const Chessboard: React.FC<ChessboardProps> = ({ onMove }) => {
-  const game = useChessGame()
+export const Chessboard: React.FC<ChessboardProps> = ({ onMove, game: providedGame, orientation = 'white' }) => {
+  // Always called (hooks can't be conditional); ignored when a game is supplied.
+  const ownGame = useChessGame()
+  const game = providedGame ?? ownGame
   const [boardSize, setBoardSize] = useState(0)
 
   const onContainerLayout = useCallback((event: LayoutChangeEvent): void => {
@@ -40,6 +50,12 @@ export const Chessboard: React.FC<ChessboardProps> = ({ onMove }) => {
     return <View style={styles.container} onLayout={onContainerLayout} testID="chessBoard" />
   }
 
+  const flipped = orientation === 'black'
+  // `game.board` is always white-on-bottom; reversing rows and cells is the whole of the flip.
+  const displayRows = flipped ? [...game.board].reverse().map((row) => [...row].reverse()) : game.board
+  const rankLabels = flipped ? Array.from({ length: 8 }, (_, i) => i + 1) : Array.from({ length: 8 }, (_, i) => 8 - i)
+  const fileLabels = flipped ? [...FILE_LABELS].reverse() : FILE_LABELS
+
   const squareSize = Math.floor(boardSize / 8)
   const labelGutter = Math.max(12, Math.floor(squareSize * 0.3))
   const boardRowWidth = squareSize * 8 + labelGutter
@@ -49,7 +65,11 @@ export const Chessboard: React.FC<ChessboardProps> = ({ onMove }) => {
     <View style={styles.container} onLayout={onContainerLayout}>
       {/* Black's side of the board — the white pieces black has captured */}
       <View style={{ width: boardRowWidth, paddingLeft: labelGutter, marginBottom: 4 }}>
-        <CapturedPieces pieces={game.capturedByBlack} size={capturedPieceSize} testID="capturedByBlack" />
+        <CapturedPieces
+          pieces={flipped ? game.capturedByWhite : game.capturedByBlack}
+          size={capturedPieceSize}
+          testID={flipped ? 'capturedByWhite' : 'capturedByBlack'}
+        />
       </View>
       <View
         style={{
@@ -60,18 +80,19 @@ export const Chessboard: React.FC<ChessboardProps> = ({ onMove }) => {
       >
         {/* Rank labels (8 down to 1) */}
         <View style={{ width: labelGutter, justifyContent: 'space-between' }}>
-          {Array.from({ length: 8 }).map((_, rankIdx) => (
-            <View key={rankIdx} style={{ height: squareSize, justifyContent: 'center', alignItems: 'center' }}>
-              <Text style={styles.label}>{8 - rankIdx}</Text>
+          {rankLabels.map((rank) => (
+            <View key={rank} style={{ height: squareSize, justifyContent: 'center', alignItems: 'center' }}>
+              <Text style={styles.label}>{rank}</Text>
             </View>
           ))}
         </View>
         <View>
-          {game.board.map((row, rankIdx) => (
-            <View key={rankIdx} style={{ flexDirection: 'row' }}>
-              {row.map((cell, fileIdx) => {
-                const sq = cell?.square ?? (`${FILE_LABELS[fileIdx]}${8 - rankIdx}` as SquareName)
-                const isDark = (rankIdx + fileIdx) % 2 === 1
+          {displayRows.map((row, rowIdx) => (
+            <View key={rowIdx} style={{ flexDirection: 'row' }}>
+              {row.map((cell, colIdx) => {
+                // Derive the square name from the display position when the cell is empty
+                const sq = cell?.square ?? (`${fileLabels[colIdx]}${rankLabels[rowIdx]}` as SquareName)
+                const isDark = (rowIdx + colIdx) % 2 === 1
                 return (
                   <Square
                     key={sq}
@@ -90,7 +111,7 @@ export const Chessboard: React.FC<ChessboardProps> = ({ onMove }) => {
           ))}
           {/* File labels (a..h) */}
           <View style={{ flexDirection: 'row', marginTop: 2 }}>
-            {FILE_LABELS.map((file) => (
+            {fileLabels.map((file) => (
               <View key={file} style={{ width: squareSize, alignItems: 'center' }}>
                 <Text style={styles.label}>{file}</Text>
               </View>
@@ -100,8 +121,22 @@ export const Chessboard: React.FC<ChessboardProps> = ({ onMove }) => {
       </View>
       {/* White's side of the board — the black pieces white has captured */}
       <View style={{ width: boardRowWidth, paddingLeft: labelGutter, marginTop: 4 }}>
-        <CapturedPieces pieces={game.capturedByWhite} size={capturedPieceSize} testID="capturedByWhite" />
+        <CapturedPieces
+          pieces={flipped ? game.capturedByBlack : game.capturedByWhite}
+          size={capturedPieceSize}
+          testID={flipped ? 'capturedByBlack' : 'capturedByWhite'}
+        />
       </View>
+      {game.pendingPromotion && (
+        <View style={{ marginTop: 12 }}>
+          <PromotionPicker
+            color={game.turn}
+            size={Math.max(36, Math.floor(squareSize * 0.9))}
+            onSelect={game.completePromotion}
+            onCancel={game.cancelPromotion}
+          />
+        </View>
+      )}
       <Text testID="turnIndicator" style={[styles.summary, (game.isCheck || game.gameOverText) && styles.alert]}>
         {game.gameOverText ?? `${game.turn === 'w' ? 'White' : 'Black'} to move${game.isCheck ? ' — check!' : ''}`}
       </Text>

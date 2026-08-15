@@ -51,6 +51,16 @@ const AppLayout: React.FC = () => {
         }}
       />
       <Tabs.Screen
+        name="puzzles"
+        options={{
+          tabBarLabel: 'Puzzles',
+          tabBarIcon: ({ color }) => <TabIcon glyph="♞" color={color} />,
+          tabBarButtonTestID: 'puzzlesTab',
+          // The list is the tab's landing screen; opening one pushes onto the same stack
+          headerShown: true,
+        }}
+      />
+      <Tabs.Screen
         name="settings"
         options={{
           tabBarLabel: 'Settings',
