@@ -51,6 +51,8 @@ describe('importGamesJob (integration)', () => {
   const gameRepository = new GameRepository(db)
   let userId: string
   let account: GameAccountRow
+  /** Games handed to analysis by the most recent run. */
+  let analysisQueue: { gameId: string; userId: string }[]
 
   const runJob = async (batches: GameBatch[], maxMonths = 3): Promise<FakeGameSource> => {
     const source = new FakeGameSource(batches)
@@ -59,6 +61,10 @@ describe('importGamesJob (integration)', () => {
       gameRepository,
       gameSources: buildGameSourceRegistry([source]),
       maxMonths,
+      enqueueAnalysis: (payload) => {
+        analysisQueue.push(payload)
+        return Promise.resolve(null)
+      },
     })
     await job({ gameAccountId: account.id, userId })
     return source
@@ -66,6 +72,7 @@ describe('importGamesJob (integration)', () => {
 
   beforeEach(async () => {
     await db.delete(gameAccountTable) // cascades to Game
+    analysisQueue = []
     userId = crypto.randomUUID()
     account = await gameAccountRepository.create({ userId, source: 'chesscom', externalUsername: 'testuser' })
   })
@@ -102,6 +109,21 @@ describe('importGamesJob (integration)', () => {
     expect(insertMany.mock.calls[0]?.[0]?.map((row) => row.externalGameId)).toEqual(['g3'])
     expect(await gameRepository.countByGameAccount(userId, account.id)).toBe(3)
     insertMany.mockRestore()
+  })
+
+  it('queues analysis for each newly-imported game, and only once', async () => {
+    const batch = { batchKey: '2024-01', isComplete: false, games: [externalGame('g1'), externalGame('g2')] }
+    await runJob([batch])
+
+    expect(analysisQueue).toHaveLength(2)
+    const games = await gameRepository.list(userId, { limit: 10, orderBy: 'createdAt', orderDirection: 'desc' })
+    expect(new Set(analysisQueue.map((entry) => entry.gameId))).toEqual(new Set(games.map((game) => game.id)))
+    expect(analysisQueue.every((entry) => entry.userId === userId)).toBe(true)
+
+    // Re-importing the same month must not re-queue work the engine has already done
+    analysisQueue = []
+    await runJob([{ ...batch, games: [...batch.games, externalGame('g3')] }])
+    expect(analysisQueue).toHaveLength(1)
   })
 
   it('advances the checkpoint to the newest complete batch and records the sync time', async () => {
@@ -145,6 +167,7 @@ describe('importGamesJob (integration)', () => {
       gameRepository,
       gameSources: buildGameSourceRegistry([new FakeGameSource([])]),
       maxMonths: 3,
+      enqueueAnalysis: () => Promise.resolve(null),
     })
     await expect(job({ gameAccountId: crypto.randomUUID(), userId })).resolves.toBeUndefined()
   })

@@ -3,7 +3,10 @@ import { createServer, type Server } from 'node:http'
 
 /**
  * A stand-in for chess.com's public API so e2e runs (especially CI) never hit the real thing.
- * Serves one player, 'erik', with a single month of real recorded games. Point tactica-core at it
+ * Serves one player, 'erik', with a single month of games: real recorded ones, plus a synthetic
+ * game where erik hangs his queen on move 3. Real games make poor fixtures for asserting that a
+ * puzzle appears, because whether the engine flags a mistake depends on how deep it searched, and CI
+ * runs at ~10ms movetimes — the synthetic one is unmissable at any depth. Point tactica-core at it
  * via CHESSCOM_API_URL (see .github/workflows/ci.yml); without that env var the backend talks to
  * real chess.com, which also works for local runs.
  */

@@ -12,6 +12,8 @@ export interface ImportGamesJobDeps {
   gameSources: GameSourceRegistry
   /** Cap on monthly archives fetched per run (newest win). */
   maxMonths: number
+  /** Queues analysis for a newly-imported game. Separate jobs so a slow engine can't stall imports. */
+  enqueueAnalysis: (payload: { gameId: string; userId: string }) => Promise<unknown>
 }
 
 const isParseablePgn = (pgn: string): boolean => {
@@ -67,8 +69,13 @@ export const buildImportGamesJob =
         }
         return [toNewGameRow(account.userId, account.id, account.source, game)]
       })
-      const inserted = await deps.gameRepository.insertMany(rows)
+      const insertedGames = await deps.gameRepository.insertMany(rows)
+      const inserted = insertedGames.length
       totalInserted += inserted
+      // Only the genuinely new games get analysed; re-imports of the current month don't re-queue.
+      for (const game of insertedGames) {
+        await deps.enqueueAnalysis({ gameId: game.id, userId: account.userId })
+      }
       if (batch.isComplete && (!newestCompleteBatch || batch.batchKey > newestCompleteBatch)) {
         newestCompleteBatch = batch.batchKey
       }
