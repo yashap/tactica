@@ -1,14 +1,33 @@
-import { getLogger } from '@tactica/logging'
 import { type EvaluateResponse } from '@tactica/stockfish-contract'
 import assert from 'node:assert/strict'
-
-const log = getLogger()
 
 /**
  * End-to-end check against a *running* service (normally the Docker container, started by
  * `tools/scripts/stockfish_smoke_test.sh`). This is what proves the real engine is wired up
  * correctly — the Vitest suite only covers the pure parsing layer.
+ *
+ * This file must have **no runtime imports from workspace packages**. It's compiled by `tsc` and run
+ * with plain `node`, which resolves workspace packages through their `default` export condition to
+ * `dist/` — output that only exists once that package has been built. CI installs and builds only
+ * this package, so importing e.g. `@tactica/logging` here fails with ERR_MODULE_NOT_FOUND even
+ * though the container itself is perfectly healthy. (The type-only import above is erased at
+ * compile time, so it costs nothing at runtime.) Hence the hand-rolled logging below.
  */
+
+type LogFields = Record<string, unknown>
+
+// Not `console.log` — the shared eslint config only permits console.warn/error.
+const format = (message: string, fields?: LogFields): string =>
+  `${message}${fields ? ` ${JSON.stringify(fields)}` : ''}\n`
+
+const log = {
+  info: (message: string, fields?: LogFields): void => {
+    process.stdout.write(format(message, fields))
+  },
+  error: (message: string, fields?: LogFields): void => {
+    process.stderr.write(format(message, fields))
+  },
+}
 
 const baseUrl = process.env['STOCKFISH_URL'] ?? 'http://localhost:3503'
 
