@@ -1,0 +1,34 @@
+## 1. Auth gate
+GET /health (no key): {"status":"ok"}
+POST without key: {"message":"Missing or invalid x-internal-api-key header","code":"UnauthorizedError"}
+POST wrong key: {"message":"Missing or invalid x-internal-api-key header","code":"UnauthorizedError"}
+GET with query string, no key: {"message":"Missing or invalid x-internal-api-key header","code":"UnauthorizedError"}
+GET path w/ uppercase prefix, no key: 404
+
+## 2. White hangs queen (1.e4 e5 2.Qh5 Nc6 3.Qxf7+?? Kxf7)
+submit -> {"status":"queued","playerColor":"white","id":"50106782-5b33-4247-91e3-e4e59ac602dd"}
+done in ~3s -> {"status":"succeeded","error":null,"plies":7,"blunders":[{"ply":4,"played":"Qxf7+","best":"Bc4","acceptable":["f1c4"],"severity":"blunder","wp":[0.493,0.091],"evalBefore":{"cp":-8},"evalAfter":{"cp":-624},"lines":[{"pv":"Bc4 g6 Qf3","cp":-28,"mate":null},{"pv":"Qd1 Nf6 Nc3","cp":-83,"mate":null},{"pv":"Nc3 Nf6 Qd1","cp":-88,"mate":null}]}]}
+
+## 3. Same game, judged as Black (should find nothing for Black)
+submit -> {"status":"queued","playerColor":"black","id":"b54cc8dd-e426-4816-9385-cabbffb4821e"}
+done in ~3s -> {"status":"succeeded","error":null,"plies":7,"blunders":[]}
+
+## 4. Black hangs queen (perspective check)
+submit -> {"status":"queued","playerColor":"black","id":"66bbb04c-a349-4dd3-a22d-b5ff200c18fe"}
+done in ~3s -> {"status":"succeeded","error":null,"plies":6,"blunders":[{"ply":3,"played":"Qh4","best":"Nc6","acceptable":["b8c6","d7d6","g8f6"],"severity":"blunder","wp":[0.468,0.074],"evalBefore":{"cp":35},"evalAfter":{"cp":688},"lines":[{"pv":"Nc6 Bb5 Nf6","cp":-32,"mate":null},{"pv":"d6 Bc4 Nc6","cp":-44,"mate":null},{"pv":"Nf6 Nxe5 d6","cp":-62,"mate":null}]}]}
+
+## 5. Scholars mate — Black gets mated
+submit -> {"status":"queued","playerColor":"black","id":"8202d709-046e-4161-bcd7-3dd1bdfcb212"}
+done in ~4s -> {"status":"succeeded","error":null,"plies":8,"blunders":[{"ply":5,"played":"Nf6","best":"g6","acceptable":["g7g6","d8e7","d8f6"],"severity":"blunder","wp":[0.534,0],"evalBefore":{"cp":-37},"evalAfter":{"mate":1},"lines":[{"pv":"g6 Qf3 Nf6","cp":36,"mate":null},{"pv":"Qe7","cp":17,"mate":null},{"pv":"Qf6 Nc3 Bc5","cp":-7,"mate":null}]}],"lastEvals":null}
+
+last moveEvals of #5 (terminal should be mate:+1 white-relative):
+[{"cp":-34,"ply":5},{"ply":6,"mate":1},{"ply":7,"mate":1}]
+
+## 6. Invalid PGN
+submit -> {"status":"queued","playerColor":"white","id":"413ed116-09f9-45f6-9901-098a141e0ba9"}
+done in ~0s -> {"status":"failed","error":"Could not parse PGN: Invalid move in PGN: Ke3"}
+
+## 7. Bad request body
+{"message":"Invalid request: body.playerColor (Invalid enum value. Expected 'white' | 'black', received 'purple')","code":"InputValidationError","metadata":{"issues":[{"source":"body","path":"playerColor","message":"Invalid enum value. Expected 'white' | 'black', received 'purple'"}]}}
+## 8. Unknown id
+{"message":"Analysis not found","code":"NotFoundError"}

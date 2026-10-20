@@ -1,0 +1,4 @@
+## Internal-key bypass check (no x-internal-api-key header)
+POST /tactica-analysis/analyses -> {"status":null,"id":null,"code":"UnauthorizedError"}
+POST /%74actica-analysis/analyses -> {"status":"queued","id":"744127a0-6d0c-45b0-bc68-784f3ab402db","code":null}
+POST /tactica%2Danalysis/analyses -> {"status":"queued","id":"b547ac58-8d58-45f6-b1fd-121834b30c73","code":null}
