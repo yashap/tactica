@@ -1,0 +1,6 @@
+## M5 attempts API (as test account 2)
+POST attempt on account 1's puzzle -> {"message":"Puzzle not found","code":"NotFoundError"}
+POST best move on own puzzle -> {"moveUci":"f1c4","correct":true}
+POST illegal-but-well-formed move (a1a1) -> {"moveUci":"a1a1","correct":false}
+POST client-claimed correct:true with wrong move -> {"moveUci":"h5f7","correct":false}
+POST SAN instead of UCI -> {"code":"InputValidationError","message":"Invalid request: body.moveUci (Must be a UCI move such as e2e4 or e7e8q)"}
