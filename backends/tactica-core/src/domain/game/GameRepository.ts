@@ -1,7 +1,7 @@
 import { InputValidationError } from '@tactica/errors'
 import { type Cursor, type Pagination, type ParseOrdering } from '@tactica/pagination'
 import { type Evaluation } from '@tactica/tactica-core-contract'
-import { and, asc, count, desc, eq, gt, inArray, lt, or, type SQL } from 'drizzle-orm'
+import { and, asc, count, desc, eq, gt, inArray, lt, ne, or, type SQL } from 'drizzle-orm'
 import { type Db } from '../../db/client.js'
 import { gameTable, type GameRow, type NewGameRow } from '../../db/schema.js'
 
@@ -24,8 +24,7 @@ export class GameRepository {
 
   /**
    * Insert games, silently skipping any already imported (unique on userId/source/externalGameId).
-   * Returns the rows that were actually inserted, so the caller can queue analysis for exactly the
-   * new ones rather than re-analysing the whole month.
+   * Returns the rows that were actually inserted.
    */
   public async insertMany(rows: NewGameRow[]): Promise<{ id: string }[]> {
     if (rows.length === 0) return []
@@ -62,6 +61,26 @@ export class GameRepository {
         ),
       )
     return row?.value ?? 0
+  }
+
+  /**
+   * Ids of the account's games that still need analysing, newest first so recent games turn into
+   * puzzles soonest. "Still need" is everything not yet `analyzed`, not just `pending` — a game left
+   * `analyzing` by a dead worker or `failed` after its final retry is just as stuck.
+   */
+  public async findIdsAwaitingAnalysis(userId: string, gameAccountId: string): Promise<string[]> {
+    const rows = await this.db
+      .select({ id: gameTable.id })
+      .from(gameTable)
+      .where(
+        and(
+          eq(gameTable.userId, userId),
+          eq(gameTable.gameAccountId, gameAccountId),
+          ne(gameTable.analysisStatus, 'analyzed'),
+        ),
+      )
+      .orderBy(desc(gameTable.playedAt), desc(gameTable.id))
+    return rows.map((row) => row.id)
   }
 
   /**

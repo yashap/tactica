@@ -111,19 +111,75 @@ describe('importGamesJob (integration)', () => {
     insertMany.mockRestore()
   })
 
-  it('queues analysis for each newly-imported game, and only once', async () => {
+  /** The account's games, keyed by external id, for asserting on what got queued. */
+  const gameIdsByExternalId = async (): Promise<Map<string, string>> => {
+    const games = await gameRepository.list(userId, { limit: 100, orderBy: 'createdAt', orderDirection: 'desc' })
+    return new Map(games.map((game) => [game.externalGameId, game.id]))
+  }
+
+  it('queues analysis for each newly-imported game, newest first', async () => {
+    await runJob([
+      {
+        batchKey: '2024-01',
+        isComplete: false,
+        games: [
+          externalGame('older', { playedAt: new Date('2024-01-02T12:00:00Z') }),
+          externalGame('newer', { playedAt: new Date('2024-01-20T12:00:00Z') }),
+        ],
+      },
+    ])
+
+    const ids = await gameIdsByExternalId()
+    expect(analysisQueue).toEqual([
+      { gameId: ids.get('newer'), userId },
+      { gameId: ids.get('older'), userId },
+    ])
+  })
+
+  it('does not re-queue games that have already been analyzed', async () => {
     const batch = { batchKey: '2024-01', isComplete: false, games: [externalGame('g1'), externalGame('g2')] }
     await runJob([batch])
+    const ids = await gameIdsByExternalId()
+    await gameRepository.setAnalysisStatus(userId, ids.get('g1')!, 'analyzed')
+    await gameRepository.setAnalysisStatus(userId, ids.get('g2')!, 'analyzed')
 
-    expect(analysisQueue).toHaveLength(2)
-    const games = await gameRepository.list(userId, { limit: 10, orderBy: 'createdAt', orderDirection: 'desc' })
-    expect(new Set(analysisQueue.map((entry) => entry.gameId))).toEqual(new Set(games.map((game) => game.id)))
-    expect(analysisQueue.every((entry) => entry.userId === userId)).toBe(true)
-
-    // Re-importing the same month must not re-queue work the engine has already done
+    // Re-importing the same month plus one new game queues only the new game
     analysisQueue = []
     await runJob([{ ...batch, games: [...batch.games, externalGame('g3')] }])
-    expect(analysisQueue).toHaveLength(1)
+    expect(analysisQueue.map((entry) => entry.gameId)).toEqual([(await gameIdsByExternalId()).get('g3')])
+  })
+
+  it('re-queues games that were imported earlier but never analyzed', async () => {
+    // e.g. imported before analysis existed, or their enqueue was lost after the insert committed —
+    // the game isn't in this run's batches at all, so only a sweep of the account can find it.
+    await gameRepository.insertMany([
+      {
+        userId,
+        gameAccountId: account.id,
+        source: 'chesscom',
+        externalGameId: 'stranded',
+        pgn: VALID_PGN,
+        playedAt: new Date('2023-11-01T12:00:00Z'),
+        timeControl: '600',
+        userColor: 'white',
+        opponentUsername: 'opponent',
+        result: 'win',
+      },
+    ])
+
+    await runJob([])
+    expect(analysisQueue.map((entry) => entry.gameId)).toEqual([(await gameIdsByExternalId()).get('stranded')])
+  })
+
+  it('re-queues games stuck analyzing or failed', async () => {
+    await runJob([{ batchKey: '2024-01', isComplete: false, games: [externalGame('stuck'), externalGame('failed')] }])
+    const ids = await gameIdsByExternalId()
+    await gameRepository.setAnalysisStatus(userId, ids.get('stuck')!, 'analyzing')
+    await gameRepository.setAnalysisStatus(userId, ids.get('failed')!, 'failed')
+
+    analysisQueue = []
+    await runJob([])
+    expect(new Set(analysisQueue.map((entry) => entry.gameId))).toEqual(new Set([ids.get('stuck'), ids.get('failed')]))
   })
 
   it('advances the checkpoint to the newest complete batch and records the sync time', async () => {

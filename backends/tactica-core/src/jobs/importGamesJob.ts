@@ -12,7 +12,10 @@ export interface ImportGamesJobDeps {
   gameSources: GameSourceRegistry
   /** Cap on monthly archives fetched per run (newest win). */
   maxMonths: number
-  /** Queues analysis for a newly-imported game. Separate jobs so a slow engine can't stall imports. */
+  /**
+   * Queues analysis for one game. Separate jobs so a slow engine can't stall imports. Must be safe
+   * to call for a game that's already queued — the real queue dedupes on game id.
+   */
   enqueueAnalysis: (payload: { gameId: string; userId: string }) => Promise<unknown>
 }
 
@@ -69,13 +72,8 @@ export const buildImportGamesJob =
         }
         return [toNewGameRow(account.userId, account.id, account.source, game)]
       })
-      const insertedGames = await deps.gameRepository.insertMany(rows)
-      const inserted = insertedGames.length
+      const inserted = (await deps.gameRepository.insertMany(rows)).length
       totalInserted += inserted
-      // Only the genuinely new games get analysed; re-imports of the current month don't re-queue.
-      for (const game of insertedGames) {
-        await deps.enqueueAnalysis({ gameId: game.id, userId: account.userId })
-      }
       if (batch.isComplete && (!newestCompleteBatch || batch.batchKey > newestCompleteBatch)) {
         newestCompleteBatch = batch.batchKey
       }
@@ -87,8 +85,22 @@ export const buildImportGamesJob =
       })
     }
 
+    // Queue analysis for every game that still needs it, not just the ones this run inserted. Queuing
+    // only new inserts would strand anything that missed its enqueue — games imported before analysis
+    // existed, an enqueue that failed after its insert committed (the retried run then skips those
+    // games as already imported), or a game whose analysis died on its last attempt. Sweeping the
+    // whole account makes every sync self-healing, and the queue's per-game dedupe makes it cheap.
+    const awaitingAnalysis = await deps.gameRepository.findIdsAwaitingAnalysis(account.userId, account.id)
+    for (const gameId of awaitingAnalysis) {
+      await deps.enqueueAnalysis({ gameId, userId: account.userId })
+    }
+
     await deps.gameAccountRepository.recordSyncCompleted(payload.userId, account.id, newestCompleteBatch)
-    logger.info('Import complete', { gameAccountId: account.id, totalInserted })
+    logger.info('Import complete', {
+      gameAccountId: account.id,
+      totalInserted,
+      queuedForAnalysis: awaitingAnalysis.length,
+    })
   }
 
 const toNewGameRow = (

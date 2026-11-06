@@ -30,7 +30,7 @@ const start = async (): Promise<void> => {
     internalApiKey: config.analysis.internalApiKey,
   })
 
-  // The import job hands newly-imported games to the analysis queue, which is the same queue that
+  // The import job hands games awaiting analysis to the analysis queue, which is the same queue that
   // owns it — hence the self-reference. Safe because `enqueueAnalysis` only runs once a job is
   // executing, long after construction.
   const jobQueue: JobQueue = new JobQueue(config.databaseUrl, {
