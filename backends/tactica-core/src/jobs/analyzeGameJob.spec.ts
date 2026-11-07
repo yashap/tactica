@@ -7,6 +7,7 @@ import { GameAccountRepository } from '../domain/gameAccount/GameAccountReposito
 import { GameRepository } from '../domain/game/GameRepository.js'
 import { PuzzleRepository } from '../domain/puzzle/PuzzleRepository.js'
 import { buildAnalyzeGameJob } from './analyzeGameJob.js'
+import { type JobAttempt } from './jobQueue.js'
 
 const PGN = '1. e4 e5 2. Qh5 Nc6 3. Qxf7+ Kxf7'
 
@@ -64,6 +65,13 @@ class FakeAnalysisClient {
 
 const asClient = (fake: FakeAnalysisClient): TacticaAnalysisClient => fake as unknown as TacticaAnalysisClient
 
+/** A first attempt with retries still to come — the common case. */
+const attempt = (overrides: Partial<JobAttempt> = {}): JobAttempt => ({
+  isFinalAttempt: false,
+  signal: new AbortController().signal,
+  ...overrides,
+})
+
 describe('analyzeGameJob (integration)', () => {
   const gameAccountRepository = new GameAccountRepository(db)
   const gameRepository = new GameRepository(db)
@@ -113,10 +121,11 @@ describe('analyzeGameJob (integration)', () => {
       analysis,
     ])
 
-    await buildJob(client)({ gameId, userId })
+    await buildJob(client)({ gameId, userId }, attempt())
 
-    // Submitted with the game's PGN and the colour the user played
-    expect(client.created).toEqual([{ pgn: PGN, playerColor: 'white' }])
+    // Submitted with the game's PGN, the colour the user played, and the game id as idempotency key —
+    // so a retry resumes this same analysis instead of queuing the game again
+    expect(client.created).toEqual([{ pgn: PGN, playerColor: 'white', idempotencyKey: gameId }])
     expect(client.getCalls).toBeGreaterThanOrEqual(2)
 
     const puzzles = await puzzleRepository.list(userId, {
@@ -142,30 +151,59 @@ describe('analyzeGameJob (integration)', () => {
 
   it('is idempotent: re-running does not duplicate puzzles', async () => {
     const analysis = succeededAnalysis()
-    await buildJob(new FakeAnalysisClient(analysis, [analysis]))({ gameId, userId })
+    await buildJob(new FakeAnalysisClient(analysis, [analysis]))({ gameId, userId }, attempt())
     // Force a second pass over the same game by rewinding its status
     await gameRepository.setAnalysisStatus(userId, gameId, 'pending')
-    await buildJob(new FakeAnalysisClient(analysis, [analysis]))({ gameId, userId })
+    await buildJob(new FakeAnalysisClient(analysis, [analysis]))({ gameId, userId }, attempt())
 
     expect(await puzzleRepository.countByGameAccount(userId, account.id)).toBe(1)
   })
 
   it('skips a game that has already been analyzed', async () => {
     const analysis = succeededAnalysis()
-    await buildJob(new FakeAnalysisClient(analysis, [analysis]))({ gameId, userId })
+    await buildJob(new FakeAnalysisClient(analysis, [analysis]))({ gameId, userId }, attempt())
 
     const client = new FakeAnalysisClient(analysis, [analysis])
-    await buildJob(client)({ gameId, userId })
+    await buildJob(client)({ gameId, userId }, attempt())
     expect(client.created).toHaveLength(0)
   })
 
-  it('marks the game failed and rethrows when analysis fails, so pg-boss retries', async () => {
+  it('on a failure with retries left, puts the game back to pending and rethrows', async () => {
     const failed = succeededAnalysis({ status: 'failed', result: null, error: 'engine exploded' })
     const client = new FakeAnalysisClient({ ...failed, status: 'queued' }, [failed])
 
-    await expect(buildJob(client)({ gameId, userId })).rejects.toThrow(/engine exploded/)
+    await expect(buildJob(client)({ gameId, userId }, attempt())).rejects.toThrow(/engine exploded/)
+
+    // Not `failed`: the app treats that as settled, and would stop polling during the retry window
+    expect((await gameRepository.findById(userId, gameId))?.analysisStatus).toBe('pending')
+  })
+
+  it('on the final attempt, marks the game failed and still rethrows', async () => {
+    const failed = succeededAnalysis({ status: 'failed', result: null, error: 'engine exploded' })
+    const client = new FakeAnalysisClient({ ...failed, status: 'queued' }, [failed])
+
+    await expect(buildJob(client)({ gameId, userId }, attempt({ isFinalAttempt: true }))).rejects.toThrow()
 
     expect((await gameRepository.findById(userId, gameId))?.analysisStatus).toBe('failed')
+  })
+
+  it('stops polling as soon as the job is aborted', async () => {
+    const stuck = succeededAnalysis({ status: 'running', result: null })
+    const client = new FakeAnalysisClient({ ...stuck, status: 'queued' }, [stuck])
+    const job = buildAnalyzeGameJob({
+      gameRepository,
+      puzzleRepository,
+      analysisClient: asClient(client),
+      pollIntervalMs: 50,
+      pollTimeoutMs: 60_000,
+    })
+    const controller = new AbortController()
+    setTimeout(() => controller.abort(), 120)
+
+    const started = Date.now()
+    await expect(job({ gameId, userId }, attempt({ signal: controller.signal }))).rejects.toThrow(/aborted/)
+    // Long before the 60s poll timeout
+    expect(Date.now() - started).toBeLessThan(2_000)
   })
 
   it('gives up if the analysis never finishes, rather than polling forever', async () => {
@@ -179,18 +217,19 @@ describe('analyzeGameJob (integration)', () => {
       pollTimeoutMs: 30,
     })
 
-    await expect(job({ gameId, userId })).rejects.toThrow(/did not finish within/)
-    expect((await gameRepository.findById(userId, gameId))?.analysisStatus).toBe('failed')
+    await expect(job({ gameId, userId }, attempt())).rejects.toThrow(/did not finish within/)
+    // The retry resubmits with the same idempotency key, resuming this analysis rather than duplicating it
+    expect((await gameRepository.findById(userId, gameId))?.analysisStatus).toBe('pending')
   })
 
   it('recovers on a later attempt after a failure', async () => {
     const failed = succeededAnalysis({ status: 'failed', result: null, error: 'nope' })
     await expect(
-      buildJob(new FakeAnalysisClient({ ...failed, status: 'queued' }, [failed]))({ gameId, userId }),
+      buildJob(new FakeAnalysisClient({ ...failed, status: 'queued' }, [failed]))({ gameId, userId }, attempt()),
     ).rejects.toThrow()
 
     const analysis = succeededAnalysis()
-    await buildJob(new FakeAnalysisClient(analysis, [analysis]))({ gameId, userId })
+    await buildJob(new FakeAnalysisClient(analysis, [analysis]))({ gameId, userId }, attempt())
 
     expect((await gameRepository.findById(userId, gameId))?.analysisStatus).toBe('analyzed')
     expect(await puzzleRepository.countByGameAccount(userId, account.id)).toBe(1)
@@ -198,7 +237,7 @@ describe('analyzeGameJob (integration)', () => {
 
   it('stores a clean analysis with no blunders as analyzed, with no puzzles', async () => {
     const clean = succeededAnalysis({ result: { moveEvals: [{ ply: 0, cp: 5 }], blunders: [] } })
-    await buildJob(new FakeAnalysisClient(clean, [clean]))({ gameId, userId })
+    await buildJob(new FakeAnalysisClient(clean, [clean]))({ gameId, userId }, attempt())
 
     expect((await gameRepository.findById(userId, gameId))?.analysisStatus).toBe('analyzed')
     expect(await puzzleRepository.countByGameAccount(userId, account.id)).toBe(0)
@@ -207,7 +246,7 @@ describe('analyzeGameJob (integration)', () => {
   it('is a no-op for a game that no longer exists', async () => {
     const analysis = succeededAnalysis()
     const client = new FakeAnalysisClient(analysis, [analysis])
-    await expect(buildJob(client)({ gameId: crypto.randomUUID(), userId })).resolves.toBeUndefined()
+    await expect(buildJob(client)({ gameId: crypto.randomUUID(), userId }, attempt())).resolves.toBeUndefined()
     expect(client.created).toHaveLength(0)
   })
 })

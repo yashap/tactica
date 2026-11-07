@@ -1,5 +1,6 @@
+import { CorrelationIdPropagator } from '@tactica/correlation-id-propagator'
 import { getLogger } from '@tactica/logging'
-import { PgBoss } from 'pg-boss'
+import { type JobWithMetadata, PgBoss } from 'pg-boss'
 
 export interface ImportGamesPayload {
   gameAccountId: string
@@ -11,13 +12,49 @@ export interface AnalyzeGamePayload {
   userId: string
 }
 
+/** What a handler needs to know about the attempt it's running as. */
+export interface JobAttempt {
+  /** No retry follows if this attempt throws — the handler should record a final failure. */
+  isFinalAttempt: boolean
+  /** Aborted when pg-boss gives up on the job (expiry) or the worker shuts down. */
+  signal: AbortSignal
+}
+
 export interface JobHandlers {
   importGames: (payload: ImportGamesPayload) => Promise<void>
-  analyzeGame: (payload: AnalyzeGamePayload) => Promise<void>
+  analyzeGame: (payload: AnalyzeGamePayload, attempt: JobAttempt) => Promise<void>
 }
 
 const IMPORT_GAMES_QUEUE = 'import-games'
 const ANALYZE_GAME_QUEUE = 'analyze-game'
+
+const IMPORT_GAMES_QUEUE_OPTIONS = {
+  policy: 'stately' as const, // at most one queued + one active job per singletonKey
+  retryLimit: 3,
+  retryDelay: 30,
+  retryBackoff: true,
+}
+
+/**
+ * Analysis is slow (seconds of engine time per game) and the engine is a single-slot resource, so
+ * this queue exists mainly to spread that work out rather than to run it in parallel.
+ */
+const ANALYZE_GAME_QUEUE_OPTIONS = {
+  policy: 'stately' as const,
+  retryLimit: 3,
+  retryDelay: 30,
+  retryBackoff: true,
+}
+
+/** Retry/expiry settings `updateQueue` may change; a queue's policy is fixed at creation. */
+const updatable = ({ policy: _policy, ...rest }: { policy: string } & Record<string, unknown>) => rest
+
+/**
+ * Run each job inside its own correlation id, so every log line it emits — and every call it makes
+ * to another service, which forwards the id — can be tied back to the one job.
+ */
+const withCorrelationId = <T>(job: { id: string }, run: () => Promise<T>): Promise<T> =>
+  CorrelationIdPropagator.runWithContext(`job-${job.id}`, run)
 
 /** pg-boss job states meaning "queued or running" (as opposed to reaching a terminal state). */
 const ACTIVE_JOB_STATES: ReadonlySet<string> = new Set(['created', 'retry', 'active'])
@@ -36,6 +73,7 @@ export class JobQueue {
   public constructor(
     databaseUrl: string,
     private readonly handlers: JobHandlers,
+    private readonly options: { analyzeGameTimeoutMs: number },
   ) {
     this.boss = new PgBoss(databaseUrl)
   }
@@ -45,32 +83,36 @@ export class JobQueue {
       getLogger().error('pg-boss error', { err: (error as Error).message })
     })
     await this.boss.start()
-    // createQueue is an upsert — safe to run on every boot
-    await this.boss.createQueue(IMPORT_GAMES_QUEUE, {
-      policy: 'stately', // at most one queued + one active job per singletonKey
-      retryLimit: 3,
-      retryDelay: 30,
-      retryBackoff: true,
-    })
-    // Analysis is slow (seconds of engine time per game) and the engine is a single-slot resource,
-    // so this queue exists mainly to spread that work out rather than to run it in parallel.
-    await this.boss.createQueue(ANALYZE_GAME_QUEUE, {
-      policy: 'stately',
-      retryLimit: 3,
-      retryDelay: 30,
-      retryBackoff: true,
-    })
+    // createQueue never changes an existing queue's options, so apply the updatable ones explicitly
+    // as well — otherwise a tweak here would silently never reach a database that has the queue.
+    await this.boss.createQueue(IMPORT_GAMES_QUEUE, IMPORT_GAMES_QUEUE_OPTIONS)
+    await this.boss.updateQueue(IMPORT_GAMES_QUEUE, updatable(IMPORT_GAMES_QUEUE_OPTIONS))
+    const analyzeGameQueueOptions = {
+      ...ANALYZE_GAME_QUEUE_OPTIONS,
+      // The job holds its slot while it polls, so it must outlive the poll timeout; otherwise pg-boss
+      // would expire it mid-poll and start a retry alongside it.
+      expireInSeconds: Math.ceil(this.options.analyzeGameTimeoutMs / 1000) + 120,
+    }
+    await this.boss.createQueue(ANALYZE_GAME_QUEUE, analyzeGameQueueOptions)
+    await this.boss.updateQueue(ANALYZE_GAME_QUEUE, updatable(analyzeGameQueueOptions))
     if (options.worker) {
       await this.boss.work<ImportGamesPayload>(IMPORT_GAMES_QUEUE, async (jobs) => {
         for (const job of jobs) {
-          await this.handlers.importGames(job.data)
+          await withCorrelationId(job, () => this.handlers.importGames(job.data))
         }
       })
-      await this.boss.work<AnalyzeGamePayload>(ANALYZE_GAME_QUEUE, async (jobs) => {
-        for (const job of jobs) {
-          await this.handlers.analyzeGame(job.data)
-        }
-      })
+      // No explicit type argument: it would stop TS inferring `includeMetadata: true` from the
+      // options literal, which is what gives the handler retryCount/retryLimit.
+      await this.boss.work(
+        ANALYZE_GAME_QUEUE,
+        { includeMetadata: true },
+        async (jobs: JobWithMetadata<AnalyzeGamePayload>[]) => {
+          for (const job of jobs) {
+            const attempt = { isFinalAttempt: job.retryCount >= job.retryLimit, signal: job.signal }
+            await withCorrelationId(job, () => this.handlers.analyzeGame(job.data, attempt))
+          }
+        },
+      )
     }
   }
 
@@ -93,7 +135,8 @@ export class JobQueue {
     return job !== null && ACTIVE_JOB_STATES.has(job.state)
   }
 
+  /** Stop taking work and wait (bounded) for in-flight jobs, so a deploy doesn't strand them. */
   public async stop(): Promise<void> {
-    await this.boss.stop()
+    await this.boss.stop({ graceful: true, timeout: 30_000 })
   }
 }

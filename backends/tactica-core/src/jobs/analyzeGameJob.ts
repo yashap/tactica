@@ -4,7 +4,7 @@ import { type TacticaAnalysisClient } from '@tactica/tactica-analysis-client'
 import { type NewPuzzleRow } from '../db/schema.js'
 import { type GameRepository } from '../domain/game/GameRepository.js'
 import { type PuzzleRepository } from '../domain/puzzle/PuzzleRepository.js'
-import { type AnalyzeGamePayload } from './jobQueue.js'
+import { type AnalyzeGamePayload, type JobAttempt } from './jobQueue.js'
 
 export interface AnalyzeGameJobDeps {
   gameRepository: GameRepository
@@ -16,7 +16,20 @@ export interface AnalyzeGameJobDeps {
   pollTimeoutMs: number
 }
 
-const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms))
+/** Wait, unless the job is abandoned first — then stop polling rather than hold the worker. */
+const sleep = (ms: number, signal: AbortSignal): Promise<void> =>
+  new Promise((resolve, reject) => {
+    if (signal.aborted) return reject(new Error('Analysis job was aborted'))
+    const timer = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort)
+      resolve()
+    }, ms)
+    const onAbort = (): void => {
+      clearTimeout(timer)
+      reject(new Error('Analysis job was aborted'))
+    }
+    signal.addEventListener('abort', onAbort, { once: true })
+  })
 
 const isTerminal = (analysis: Analysis): boolean => analysis.status === 'succeeded' || analysis.status === 'failed'
 
@@ -55,10 +68,18 @@ const toPuzzleRow = (
  * (analysis calling us back) would mean exposing an endpoint and dealing with retries in both
  * directions. Everything here is idempotent: puzzle inserts dedupe on `(gameId, ply)`, so a retry
  * after a partial failure just fills in what's missing.
+ *
+ * Submission carries the game id as an idempotency key, so a retry (after a poll timeout, say)
+ * resumes polling the analysis already under way instead of queuing the game a second time on the
+ * single-slot engine.
+ *
+ * A failure only marks the game `failed` on the final attempt. Before that it goes back to `pending`:
+ * the app treats `failed` as settled, and would otherwise stop polling during the retry window and
+ * miss the puzzles a successful retry produces.
  */
 export const buildAnalyzeGameJob =
   (deps: AnalyzeGameJobDeps) =>
-  async (payload: AnalyzeGamePayload): Promise<void> => {
+  async (payload: AnalyzeGamePayload, attempt: JobAttempt): Promise<void> => {
     const logger = getLogger()
     const game = await deps.gameRepository.findById(payload.userId, payload.gameId)
     if (!game) {
@@ -75,6 +96,7 @@ export const buildAnalyzeGameJob =
       const submitted = await deps.analysisClient.create({
         pgn: game.pgn,
         playerColor: game.userColor,
+        idempotencyKey: game.id,
       })
 
       const deadline = Date.now() + deps.pollTimeoutMs
@@ -83,7 +105,7 @@ export const buildAnalyzeGameJob =
         if (Date.now() > deadline) {
           throw new Error(`Analysis ${analysis.id} did not finish within ${deps.pollTimeoutMs}ms`)
         }
-        await sleep(deps.pollIntervalMs)
+        await sleep(deps.pollIntervalMs, attempt.signal)
         const polled = await deps.analysisClient.get(analysis.id)
         if (!polled) {
           throw new Error(`Analysis ${analysis.id} disappeared while we were waiting for it`)
@@ -105,9 +127,15 @@ export const buildAnalyzeGameJob =
         puzzlesInserted: inserted,
       })
     } catch (error) {
-      // Record it so the UI stops showing this game as in-flight, then rethrow so pg-boss retries.
-      await deps.gameRepository.setAnalysisStatus(game.userId, game.id, 'failed')
-      logger.error('Failed to analyze game', { gameId: game.id, err: (error as Error).message })
+      const err = (error as Error).message
+      if (attempt.isFinalAttempt) {
+        // Settled: the UI stops counting this game as in flight and reports it as failed
+        await deps.gameRepository.setAnalysisStatus(game.userId, game.id, 'failed')
+        logger.error('Failed to analyze game on its final attempt', { gameId: game.id, err })
+      } else {
+        await deps.gameRepository.setAnalysisStatus(game.userId, game.id, 'pending')
+        logger.warn('Analysis attempt failed; pg-boss will retry', { gameId: game.id, err })
+      }
       throw error
     }
   }
