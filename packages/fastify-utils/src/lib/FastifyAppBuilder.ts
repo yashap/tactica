@@ -1,4 +1,4 @@
-import cors from '@fastify/cors'
+import cors, { type FastifyCorsOptions } from '@fastify/cors'
 import formbody from '@fastify/formbody'
 import { getLogger } from '@tactica/logging'
 import Fastify, { type FastifyInstance } from 'fastify'
@@ -35,11 +35,23 @@ export type FastifyAppBuilderOptions = FastifyAppBuilderBaseOptions &
       }
   )
 
+/**
+ * CORS for the browser app. `methods` must be spelled out: since @fastify/cors 10 it defaults to only
+ * the CORS-safelisted GET, HEAD and POST, so the preflight for anything else (unlinking an account is
+ * a DELETE) is refused and the browser never sends the request.
+ */
+export const buildCorsOptions = (websiteDomain: string, extraAllowedHeaders: string[]): FastifyCorsOptions => ({
+  origin: websiteDomain,
+  methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'],
+  allowedHeaders: ['content-type', ...extraAllowedHeaders],
+  credentials: true,
+})
+
 export class FastifyAppBuilder {
   public static async build(options: FastifyAppBuilderOptions): Promise<FastifyInstance> {
     const app = Fastify({
       logger: false,
-      ignoreTrailingSlash: true,
+      routerOptions: { ignoreTrailingSlash: true },
       // Without this, `close()` waits for keep-alive sockets that are just sitting idle — a
       // healthcheck poller or a browser tab is enough to stall shutdown until the socket times out.
       // 'idle' closes those immediately while still letting in-flight requests finish.
@@ -55,19 +67,13 @@ export class FastifyAppBuilder {
     await app.register(formbody)
 
     if (options.kind === 'userFacing') {
-      await app.register(cors, {
-        origin: options.websiteDomain,
-        allowedHeaders: ['content-type', ...supertokens.getAllCORSHeaders()],
-        credentials: true,
-      })
+      await app.register(cors, buildCorsOptions(options.websiteDomain, supertokens.getAllCORSHeaders()))
 
       await app.register(supertokensFastify, { websiteDomain: options.websiteDomain })
     }
 
-    // SuperTokens registers its own error handler via the plugin; override with ours so app errors
-    // (after the supertokens path-matcher) get our consistent DTO. SuperTokens' handler is still
-    // invoked for its own routes through the framework integration. Internal services have no
-    // SuperTokens handler to override, but need ours just the same.
+    // Every app error gets our consistent DTO. SuperTokens doesn't need an error handler of its own
+    // here: its routes and `verifySession` write their responses themselves.
     app.setErrorHandler(tacticaErrorHandler)
 
     await options.registerRoutes(app)

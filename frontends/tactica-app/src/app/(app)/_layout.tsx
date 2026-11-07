@@ -1,6 +1,6 @@
 import { Redirect, router, Tabs } from 'expo-router'
 import React from 'react'
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, type ColorValue, Pressable, StyleSheet, Text, View } from 'react-native'
 import { useAuth } from '../../auth/AuthContext'
 import { TacticaWordmark } from '../../branding/TacticaWordmark'
 
@@ -19,7 +19,7 @@ const LogOutButton: React.FC = () => {
   )
 }
 
-const TabIcon: React.FC<{ glyph: string; color: string }> = ({ glyph, color }) => (
+const TabIcon: React.FC<{ glyph: string; color: ColorValue }> = ({ glyph, color }) => (
   <Text style={{ color, fontSize: 20, lineHeight: 24 }}>{glyph}</Text>
 )
 
