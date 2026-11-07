@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { tacticaCoreClient } from './tacticaCoreClient'
 
 export const PUZZLES_QUERY_KEY = ['puzzles']
@@ -20,3 +20,17 @@ export const usePuzzle = (id: string | undefined) =>
     queryFn: () => tacticaCoreClient.puzzles.get(id!),
     enabled: id !== undefined,
   })
+
+/**
+ * Record an attempt. The board already showed the verdict locally, so this isn't in the critical
+ * path — but the server's answer is what marks the puzzle solved, so invalidate the list afterwards
+ * to pick up the badge.
+ */
+export const useSubmitPuzzleAttempt = () => {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ puzzleId, moveUci }: { puzzleId: string; moveUci: string; correct: boolean }) =>
+      tacticaCoreClient.puzzles.createAttempt(puzzleId, { moveUci }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: PUZZLES_QUERY_KEY }),
+  })
+}

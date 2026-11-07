@@ -98,6 +98,30 @@ describe('GameRepository (integration)', () => {
     expect(secondPage.map((g) => g.externalGameId)).toEqual(['g3', 'g2'])
   })
 
+  it('counts analysis progress, and never counts a failure as still pending', async () => {
+    await repo.insertMany([
+      newGameRow(userId, account.id, 'g1', new Date('2024-01-01')),
+      newGameRow(userId, account.id, 'g2', new Date('2024-01-02')),
+      newGameRow(userId, account.id, 'g3', new Date('2024-01-03')),
+    ])
+    const games = await repo.list(userId, { limit: 10, orderBy: 'playedAt', orderDirection: 'asc' })
+
+    // Fresh imports start pending
+    expect(await repo.countPendingAnalysisByGameAccount(userId, account.id)).toBe(3)
+    expect(await repo.countAnalyzedByGameAccount(userId, account.id)).toBe(0)
+
+    await repo.setAnalysisStatus(userId, games[0]!.id, 'analyzed')
+    await repo.setAnalysisStatus(userId, games[1]!.id, 'analyzing')
+    await repo.setAnalysisStatus(userId, games[2]!.id, 'failed')
+
+    expect(await repo.countAnalyzedByGameAccount(userId, account.id)).toBe(1)
+    // The failed one is neither analyzed nor pending — otherwise the UI would wait on it forever
+    expect(await repo.countPendingAnalysisByGameAccount(userId, account.id)).toBe(1)
+
+    await repo.setAnalysisStatus(userId, games[1]!.id, 'analyzed')
+    expect(await repo.countPendingAnalysisByGameAccount(userId, account.id)).toBe(0)
+  })
+
   it('scopes queries by user', async () => {
     await repo.insertMany([newGameRow(userId, account.id, 'mine', new Date())])
     const games = await repo.list(crypto.randomUUID(), { limit: 10, orderBy: 'createdAt', orderDirection: 'desc' })

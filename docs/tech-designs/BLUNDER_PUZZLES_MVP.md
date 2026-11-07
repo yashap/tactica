@@ -8,7 +8,7 @@
 | M2 — stockfish service (Dockerized engine API)             | ✅ Implemented |
 | M3 — tactica-analysis service (blunder detection pipeline) | ✅ Implemented |
 | M4 — Pipeline integration → puzzles appear                 | ✅ Implemented |
-| M5 — Puzzle-solving UI                                     | Not started    |
+| M5 — Puzzle-solving UI                                     | ✅ Implemented |
 | M6 — tactica-coach service + explanations UI               | Not started    |
 | M7 — Lichess source                                        | Not started    |
 
@@ -179,6 +179,15 @@ tactica-core :3501 ────ts-rest────▶ tactica-analysis :3502 ─
 
 - `useChessGame` accepts `{initialFen?}`; `Chessboard` gains `orientation: ChessColor` (view-only transform) + `interactiveColor?: ChessColor` (converting to chess.js's `'w'|'b'` internally); **promotion picker** component shown when a puzzle move is a pawn reaching the last rank (replaces auto-queen in puzzle mode; hotseat play screen untouched); `usePuzzle` hook (load FEN, one user move, compare UCI — including promotion piece — against `bestMoveUci ∪ acceptableMovesUci`); `(app)/puzzles/index.tsx` (list, newest first, solved/unsolved badges) + `[id].tsx`; Puzzles tab; `PuzzleAttempt` table + `POST /puzzles/:id/attempts` (server re-validates + stores `correct`; client validates locally for instant feedback — these are the user's own games, no cheating incentive). Success: ✓ then animate engine's opponent reply (`engineLines[0]` move 2). Failure: "you played X in the game / best was Y" with both shown, Retry offered. Either terminal state reveals the coach panel slot (M6).
 - **Verify**: e2e (the star): sign up → link (fixture server) → analysis completes (tiny movetimes) → open puzzle → play best move → success state; second test plays a wrong move → fail state; include a promotion puzzle fixture if practical. Vitest for attempt validation. testID conventions extended (`puzzlesScreen`, `puzzle-<id>`, `promotionPicker-<piece>`, etc.).
+- **Implementation notes (as built, August 2026)**:
+  - **`puzzles/` needs its own `_layout.tsx`.** Without one, Expo Router flattens the directory into the parent navigator, so `index` and `[id]` each become their own tab and the tab named `puzzles` never exists. A trivial `<Stack>` fixes it.
+  - **All tab screens stay mounted**, so `square-*` testIDs exist several times over — the Play tab's board is in the DOM whenever the puzzle screen is. An unscoped `getByTestId('square-f1')` resolves to that hidden board, which sits behind the puzzle screen and swallows the click (Playwright reports it as an intercepted pointer event, which reads like a z-index bug and isn't). E2e locators for the board must be scoped to `puzzleScreen`. Worth remembering for M6's coach panel.
+  - **Retry is a remount, not a reset.** The board's position is fixed when `useChessGame` mounts, so `usePuzzle` deliberately exposes no `retry`; the screen keys the attempt component and bumps the key. That also guarantees no state from the previous attempt survives.
+  - **Puzzle rows are keyed by opponent** (`puzzleRow-<opponentUsername>`) rather than the id from the design doc's convention: ids are random, and e2e needs to open one _specific_ puzzle (the fixture's hanging-queen game).
+  - The e2e has to wait for **all** games to finish analysing, not just for the puzzle count to go positive — games are analysed one at a time and the fixture's blunder game is last, so the count can go positive while the puzzle the test needs doesn't exist yet. `analysisActiveIndicator` disappearing is the signal.
+  - **Analysis progress is reported as an explicit `gamesPendingAnalysis` count**, not derived from `gamesImported - gamesAnalyzed`. That arithmetic counts a _failed_ analysis as pending forever, which would leave the spinner turning and React Query polling with nothing left to wait for. Failed games are neither analyzed nor pending.
+  - Grading happens twice by design: locally for instant feedback (the puzzle carries its own answer, and these are the user's own games — nothing to cheat at), and again on the server, whose verdict is what marks the puzzle solved.
+  - `askForPromotion` is opt-in on `useChessGame`, so the hotseat board keeps its quick auto-queen flow while puzzles ask — under-promotion is occasionally the answer, and silently queening would mark a correct answer wrong.
 
 ### M6 — tactica-coach service + explanations UI
 

@@ -36,6 +36,24 @@ const toBoardGrid = (chess: Chess): BoardGrid => {
   )
 }
 
+/** A move waiting on the user to say what the pawn should become. */
+export interface PendingPromotion {
+  from: Square
+  to: Square
+}
+
+export interface UseChessGameOptions {
+  /** Start from this position instead of the initial one (a puzzle, say). */
+  initialFen?: string
+  /** Only this side's pieces can be picked up. Omit to allow both (hotseat play). */
+  interactiveColor?: 'w' | 'b'
+  /**
+   * Ask which piece to promote to instead of silently queening. Off by default so the hotseat board
+   * keeps its quick tap-tap flow; puzzles turn it on, because under-promotion can be the answer.
+   */
+  askForPromotion?: boolean
+}
+
 export interface ChessGame {
   board: BoardGrid
   selectedSquare: Square | null
@@ -56,6 +74,13 @@ export interface ChessGame {
   capturedByWhite: PieceCode[]
   /** White pieces black has captured, sorted by piece value (pawns first). */
   capturedByBlack: PieceCode[]
+  /** Set when a move is waiting on a promotion choice; render a picker while it is. */
+  pendingPromotion: PendingPromotion | null
+  /** Finish the pending promotion with the chosen piece. */
+  completePromotion: (piece: 'q' | 'r' | 'b' | 'n') => void
+  cancelPromotion: () => void
+  /** The last move played, in UCI (including the promotion piece) — how puzzles get graded. */
+  lastMoveUci: string | null
 }
 
 const PIECE_VALUE: Record<string, number> = { p: 1, n: 2, b: 3, r: 4, q: 5 }
@@ -92,10 +117,12 @@ const toGameOverText = (chess: Chess): string | null => {
  * of the board plus selection + move helpers. Both sides are played from the same board
  * (hotseat style) — `chess.js` enforces turn alternation and move legality.
  */
-export const useChessGame = (): ChessGame => {
-  const [chess] = useState(() => new Chess())
+export const useChessGame = (options: UseChessGameOptions = {}): ChessGame => {
+  const { initialFen, interactiveColor, askForPromotion = false } = options
+  const [chess] = useState(() => (initialFen === undefined ? new Chess() : new Chess(initialFen)))
   const [, forceRender] = useState(0)
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null)
+  const [pendingPromotion, setPendingPromotion] = useState<PendingPromotion | null>(null)
 
   const bump = useCallback(() => {
     forceRender((n) => n + 1)
@@ -106,7 +133,9 @@ export const useChessGame = (): ChessGame => {
   // 64 cells on every render is cheap, so we just do it inline.
   const board = toBoardGrid(chess)
   const history = chess.history({ verbose: true })
-  const lastMoveSan = history.length > 0 ? history[history.length - 1]!.san : null
+  const lastMove = history.length > 0 ? history[history.length - 1]! : undefined
+  const lastMoveSan = lastMove?.san ?? null
+  const lastMoveUci = lastMove ? `${lastMove.from}${lastMove.to}${lastMove.promotion ?? ''}` : null
 
   const legalDestinations: Square[] = !selectedSquare
     ? []
@@ -114,11 +143,21 @@ export const useChessGame = (): ChessGame => {
 
   const selectSquare = useCallback(
     (sq: Square): void => {
+      // A choice is already pending; ignore board taps until it's resolved one way or the other.
+      if (pendingPromotion) return
+
       // If a square is already selected and the tap lands on a legal destination, treat the
       // second tap as a move attempt. Otherwise the tap selects (or deselects) a square.
       if (selectedSquare) {
-        const legal = chess.moves({ square: selectedSquare, verbose: true }).some((m) => m.to === sq)
-        if (legal) {
+        const candidate = chess.moves({ square: selectedSquare, verbose: true }).find((m) => m.to === sq)
+        if (candidate) {
+          if (candidate.promotion && askForPromotion) {
+            // Hold the move until the user picks a piece — under-promotion is sometimes the answer
+            setPendingPromotion({ from: selectedSquare, to: sq })
+            setSelectedSquare(null)
+            bump()
+            return
+          }
           chess.move({ from: selectedSquare, to: sq, promotion: 'q' })
           setSelectedSquare(null)
           bump()
@@ -127,14 +166,30 @@ export const useChessGame = (): ChessGame => {
       }
 
       const piece = chess.get(sq)
-      if (piece && piece.color === chess.turn()) {
+      const isOwnPiece = piece && piece.color === chess.turn()
+      const isInteractive = interactiveColor === undefined || piece?.color === interactiveColor
+      if (isOwnPiece && isInteractive) {
         setSelectedSquare(sq)
       } else {
         setSelectedSquare(null)
       }
     },
-    [chess, selectedSquare, bump],
+    [chess, selectedSquare, bump, pendingPromotion, askForPromotion, interactiveColor],
   )
+
+  const completePromotion = useCallback(
+    (piece: 'q' | 'r' | 'b' | 'n'): void => {
+      if (!pendingPromotion) return
+      chess.move({ from: pendingPromotion.from, to: pendingPromotion.to, promotion: piece })
+      setPendingPromotion(null)
+      bump()
+    },
+    [chess, pendingPromotion, bump],
+  )
+
+  const cancelPromotion = useCallback((): void => {
+    setPendingPromotion(null)
+  }, [])
 
   const attemptMove = useCallback(
     (from: Square, to: Square): boolean => {
@@ -167,5 +222,9 @@ export const useChessGame = (): ChessGame => {
     gameOverText: toGameOverText(chess),
     capturedByWhite: capturedPieces(history, 'w'),
     capturedByBlack: capturedPieces(history, 'b'),
+    pendingPromotion,
+    completePromotion,
+    cancelPromotion,
+    lastMoveUci,
   }
 }

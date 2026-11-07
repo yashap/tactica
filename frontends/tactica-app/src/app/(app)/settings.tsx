@@ -50,8 +50,9 @@ const LinkedAccountCard: React.FC<{ account: GameAccountWithStats }> = ({ accoun
   const sync = useSyncGameAccount()
   const unlink = useUnlinkGameAccount()
   const { stats } = account
-  // Imported games that analysis hasn't finished with yet — the queue draining in the background
-  const analysisPending = Math.max(stats.gamesImported - stats.gamesAnalyzed, 0)
+  // Straight from the server: games still queued or in flight. Not derived from
+  // imported - analyzed, which would count a failed analysis as pending forever.
+  const analysisPending = stats.gamesPendingAnalysis
 
   return (
     <View style={styles.card}>
