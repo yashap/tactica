@@ -37,6 +37,9 @@ test('link a chess.com account and watch games import', async ({ page }) => {
 })
 
 test('imported games are analyzed and a puzzle appears', async ({ page }) => {
+  // The whole pipeline outlasts Playwright's default per-test timeout, which would otherwise silently
+  // cap the generous `expect` timeouts below
+  test.setTimeout(240_000)
   await signUpAndGoToSettings(page)
 
   await page.getByTestId('chesscomUsernameInput').fill(FIXTURE_PLAYER)
