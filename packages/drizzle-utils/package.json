@@ -24,14 +24,14 @@
     "lint": "tsc --noEmit && eslint \"src/**/*.{ts,tsx}\""
   },
   "dependencies": {
-    "drizzle-orm": "^0.44.5",
-    "postgres": "^3.4.5"
+    "drizzle-orm": "^0.45.4",
+    "postgres": "^4.0.0"
   },
   "devDependencies": {
     "@tactica/eslint-config": "workspace:*",
     "@tactica/tsconfig": "workspace:*",
-    "@types/node": "^22.10.0",
-    "eslint": "^9.34.0",
-    "typescript": "^5.9.2"
+    "@types/node": "^26.6.6",
+    "eslint": "^10.14.0",
+    "typescript": "^6.0.3"
   }
 }

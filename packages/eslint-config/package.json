@@ -10,14 +10,11 @@
     "index.js"
   ],
   "dependencies": {
-    "@eslint/js": "^9.34.0",
-    "@typescript-eslint/eslint-plugin": "^8.42.0",
-    "@typescript-eslint/parser": "^8.42.0",
-    "eslint-plugin-import": "^2.31.0",
-    "globals": "^15.15.0",
-    "typescript-eslint": "^8.42.0"
+    "@eslint/js": "^10.0.1",
+    "globals": "^17.14.0",
+    "typescript-eslint": "^8.72.1"
   },
   "peerDependencies": {
-    "eslint": "^9.0.0"
+    "eslint": "^10.0.0"
   }
 }

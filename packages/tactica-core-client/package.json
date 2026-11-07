@@ -29,12 +29,12 @@
     "@tactica/pagination": "workspace:^",
     "@tactica/tactica-core-contract": "workspace:*",
     "@ts-rest/core": "^3.52.1",
-    "axios": "^1.11.0"
+    "axios": "^1.21.0"
   },
   "devDependencies": {
     "@tactica/eslint-config": "workspace:*",
     "@tactica/tsconfig": "workspace:*",
-    "eslint": "^9.34.0",
-    "typescript": "^5.9.2"
+    "eslint": "^10.14.0",
+    "typescript": "^6.0.3"
   }
 }

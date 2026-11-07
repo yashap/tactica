@@ -23,3 +23,10 @@ allowBuilds:
 autoInstallPeers: true
 strictPeerDependencies: false
 shamefullyHoist: false
+
+peerDependencyRules:
+  allowedVersions:
+    # @ts-rest/fastify 3.52 (the latest stable ts-rest) still declares `fastify: ^4`, but its adapter only uses APIs that
+    # are unchanged in Fastify 5, and our route tests + e2e run it on 5. Drop this once ts-rest ships a release that
+    # declares Fastify 5 (or we move off ts-rest — it has had no stable release since mid-2025).
+    '@ts-rest/fastify>fastify': '5'
