@@ -1,0 +1,58 @@
+# Browser console — before (main), 1 walkthrough run
+[info] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold
+[log] Running application "main" with appParams:
+ {rootTag: #root, hydrate: undefined} 
+Development-level warnings: ON.
+Performance optimizations: OFF.
+[warning] props.pointerEvents is deprecated. Use style.pointerEvents
+[http 401] GET http://localhost:3501/tactica-core/session
+[error] Failed to load resource: the server responded with a status of 401 (Unauthorized)
+[http 400] POST http://localhost:3501/tactica-core/game-accounts
+[error] Failed to load resource: the server responded with a status of 400 (Bad Request)
+
+# Browser console — after (upgrade), 1 walkthrough run
+[info] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[http 401] GET http://localhost:3501/tactica-core/session
+[error] Failed to load resource: the server responded with a status of 401 (Unauthorized)
+[http 400] POST http://localhost:3501/tactica-core/game-accounts
+[error] Failed to load resource: the server responded with a status of 400 (Bad Request)
+[info] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+
+# Backend warnings/errors — before (ANSI stripped, deduped; 'before' log spans 3 walkthrough runs, 'after' 1)
+   3   InputValidationError: No chesscom user named 'qa-no-such-user-zz9' found
+   1 (Use `node --trace-deprecation ...` to show where the warning was created)
+   1 [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+   1 [WARN]  Local package.json exists, but node_modules missing, did you mean to install?
+   3 error [http]: 	Request errored {"method":"POST","url":"/tactica-core/game-accounts"}
+   3 warn [http]: GET / 404 0ms {"responseBody":{"message":"Endpoint not found","code":"EndpointNotFoundError"}}
+   1 warn [http]: GET / 404 2ms {"responseBody":{"message":"Endpoint not found","code":"EndpointNotFoundError"}}
+   1 warn [http]: GET /tactica-core/session 401 0ms {"responseBody":{"message":"unauthorised"}}
+   2 warn [http]: GET /tactica-core/session 401 1ms {"responseBody":{"message":"unauthorised"}}
+   1 warn [http]: POST /tactica-core/game-accounts 400 12ms {"responseBody":{"message":"No chesscom user named 'qa-no-such-user-zz9' found","code":"InputValidationError"}}
+   1 warn [http]: POST /tactica-core/game-accounts 400 13ms {"responseBody":{"message":"No chesscom user named 'qa-no-such-user-zz9' found","code":"InputValidationError"}}
+   1 warn [http]: POST /tactica-core/game-accounts 400 9ms {"responseBody":{"message":"No chesscom user named 'qa-no-such-user-zz9' found","code":"InputValidationError"}}
+
+# Backend warnings/errors — after (ANSI stripped, deduped; 'before' log spans 3 walkthrough runs, 'after' 1)
+   1   InputValidationError: No chesscom user named 'qa-no-such-user-zz9' found
+   1 (Use `node --trace-deprecation ...` to show where the warning was created)
+   1 [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+   1 error [http]: 	Request errored {"method":"POST","url":"/tactica-core/game-accounts"}
+   3 warn [http]: GET / 404 0ms {"responseBody":{"message":"Endpoint not found","code":"EndpointNotFoundError"}}
+   1 warn [http]: GET / 404 2ms {"responseBody":{"message":"Endpoint not found","code":"EndpointNotFoundError"}}
+   1 warn [http]: GET /tactica-core/session 401 1ms {"responseBody":{"message":"unauthorised"}}
+   1 warn [http]: POST /tactica-core/game-accounts 400 9ms {"responseBody":{"message":"No chesscom user named 'qa-no-such-user-zz9' found","code":"InputValidationError"}}
+
+# e2e (after, CI movetimes)
+  ✓   1 [chromium] › src/chesscomImport.spec.ts:23:1 › link a chess.com account and watch games import (25.4s)
+  ✓   2 [chromium] › src/chesscomImport.spec.ts:39:1 › imported games are analyzed and a puzzle appears (3.8s)
+  ✓   3 [chromium] › src/chesscomImport.spec.ts:57:1 › linking a nonexistent chess.com username shows a validation error (977ms)
+  ✓   4 [chromium] › src/chesscomImport.spec.ts:68:1 › unlinking removes the account and offers the link form again (1.0s)
+  ✓   5 [chromium] › src/play.spec.ts:27:1 › signup, see chess board, play alternating moves including a capture (1.3s)
+  ✓   6 [chromium] › src/play.spec.ts:76:1 › check is indicated on the king square and clears when resolved (1.3s)
+  ✓   7 [chromium] › src/play.spec.ts:97:1 › checkmate is indicated on the king square (fool's mate) (1.3s)
+  ✓   8 [chromium] › src/puzzles.spec.ts:72:1 › solving a puzzle with the best move shows the success state (26.6s)
+  ✓   9 [chromium] › src/puzzles.spec.ts:85:1 › the board locks once the puzzle is answered (20.1s)
+  ✓  10 [chromium] › src/puzzles.spec.ts:98:1 › playing the wrong move shows the failure state and allows a retry (19.2s)
+  ✓  11 [chromium] › src/puzzles.spec.ts:121:1 › a puzzle solved first time is badged as solved in the list (16.5s)
+  ✓  12 [chromium] › src/puzzles.spec.ts:132:1 › a black puzzle shows the board from black's side (16.5s)
+  12 passed (2.2m)
