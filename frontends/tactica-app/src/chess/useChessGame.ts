@@ -52,6 +52,11 @@ export interface UseChessGameOptions {
    * keeps its quick tap-tap flow; puzzles turn it on, because under-promotion can be the answer.
    */
   askForPromotion?: boolean
+  /**
+   * Ignore taps: nothing can be selected or moved by hand. `attemptMove` still works, so code can
+   * play moves onto a locked board (a puzzle playing the opponent's reply after it's been solved).
+   */
+  readOnly?: boolean
 }
 
 export interface ChessGame {
@@ -59,7 +64,8 @@ export interface ChessGame {
   selectedSquare: Square | null
   legalDestinations: Square[]
   selectSquare: (sq: Square) => void
-  attemptMove: (from: Square, to: Square) => boolean
+  /** Play a move programmatically. Promotes to `promotion` if given, else to a queen. */
+  attemptMove: (from: Square, to: Square, promotion?: 'q' | 'r' | 'b' | 'n') => boolean
   lastMoveSan: string | null
   /** Side to move next. */
   turn: 'w' | 'b'
@@ -118,7 +124,7 @@ const toGameOverText = (chess: Chess): string | null => {
  * (hotseat style) — `chess.js` enforces turn alternation and move legality.
  */
 export const useChessGame = (options: UseChessGameOptions = {}): ChessGame => {
-  const { initialFen, interactiveColor, askForPromotion = false } = options
+  const { initialFen, interactiveColor, askForPromotion = false, readOnly = false } = options
   const [chess] = useState(() => (initialFen === undefined ? new Chess() : new Chess(initialFen)))
   const [, forceRender] = useState(0)
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null)
@@ -143,6 +149,7 @@ export const useChessGame = (options: UseChessGameOptions = {}): ChessGame => {
 
   const selectSquare = useCallback(
     (sq: Square): void => {
+      if (readOnly) return
       // A choice is already pending; ignore board taps until it's resolved one way or the other.
       if (pendingPromotion) return
 
@@ -174,7 +181,7 @@ export const useChessGame = (options: UseChessGameOptions = {}): ChessGame => {
         setSelectedSquare(null)
       }
     },
-    [chess, selectedSquare, bump, pendingPromotion, askForPromotion, interactiveColor],
+    [chess, selectedSquare, bump, pendingPromotion, askForPromotion, interactiveColor, readOnly],
   )
 
   const completePromotion = useCallback(
@@ -192,9 +199,9 @@ export const useChessGame = (options: UseChessGameOptions = {}): ChessGame => {
   }, [])
 
   const attemptMove = useCallback(
-    (from: Square, to: Square): boolean => {
+    (from: Square, to: Square, promotion: 'q' | 'r' | 'b' | 'n' = 'q'): boolean => {
       try {
-        chess.move({ from, to, promotion: 'q' })
+        chess.move({ from, to, promotion })
         setSelectedSquare(null)
         bump()
         return true

@@ -70,6 +70,13 @@ const LinkedAccountCard: React.FC<{ account: GameAccountWithStats }> = ({ accoun
       <Text testID="puzzleCountText" style={styles.stat}>
         {stats.puzzleCount} {stats.puzzleCount === 1 ? 'puzzle' : 'puzzles'} found
       </Text>
+      {stats.gamesFailedAnalysis > 0 && (
+        // Not pending any more, but not silently dropped either — and syncing re-queues them
+        <Text testID="gamesFailedText" style={styles.failedStat}>
+          {stats.gamesFailedAnalysis} {stats.gamesFailedAnalysis === 1 ? "game couldn't" : "games couldn't"} be analyzed
+          · Sync now to retry
+        </Text>
+      )}
       {stats.syncActive ? (
         <View style={styles.syncRow} testID="syncActiveIndicator">
           <ActivityIndicator size="small" color="#D9A441" />
@@ -137,6 +144,7 @@ const styles = StyleSheet.create({
   stat: { fontSize: 15 },
   syncRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   syncText: { fontSize: 14, color: '#6E675D' },
+  failedStat: { fontSize: 14, color: '#c0392b' },
   syncedText: { fontSize: 14, color: '#6E675D' },
   actionsRow: { flexDirection: 'row', gap: 12, marginTop: 4 },
   input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 6, padding: 12, fontSize: 16 },

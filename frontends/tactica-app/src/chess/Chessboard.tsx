@@ -19,10 +19,24 @@ export interface ChessboardProps {
   orientation?: 'white' | 'black'
 }
 
-export const Chessboard: React.FC<ChessboardProps> = ({ onMove, game: providedGame, orientation = 'white' }) => {
-  // Always called (hooks can't be conditional); ignored when a game is supplied.
-  const ownGame = useChessGame()
-  const game = providedGame ?? ownGame
+/**
+ * A chessboard. Hand it a `game` to drive it from outside (puzzles); omit it and it runs its own
+ * hotseat game. The two are separate components so the self-contained one is the only place a game
+ * gets created — a single component would have to create one on every render and throw it away.
+ */
+export const Chessboard: React.FC<ChessboardProps> = ({ game, ...rest }) =>
+  game ? <BoardView game={game} {...rest} /> : <SelfContainedBoard {...rest} />
+
+const SelfContainedBoard: React.FC<Omit<ChessboardProps, 'game'>> = (props) => {
+  const game = useChessGame()
+  return <BoardView game={game} {...props} />
+}
+
+const BoardView: React.FC<Omit<ChessboardProps, 'game'> & { game: ChessGame }> = ({
+  onMove,
+  game,
+  orientation = 'white',
+}) => {
   const [boardSize, setBoardSize] = useState(0)
 
   const onContainerLayout = useCallback((event: LayoutChangeEvent): void => {
@@ -117,6 +131,17 @@ export const Chessboard: React.FC<ChessboardProps> = ({ onMove, game: providedGa
               </View>
             ))}
           </View>
+          {/* Laid over the board rather than below it, so choosing a piece doesn't shift the layout */}
+          {game.pendingPromotion && (
+            <View style={[styles.overlay, { width: squareSize * 8, height: squareSize * 8 }]}>
+              <PromotionPicker
+                color={game.turn}
+                size={Math.max(36, Math.floor(squareSize * 0.9))}
+                onSelect={game.completePromotion}
+                onCancel={game.cancelPromotion}
+              />
+            </View>
+          )}
         </View>
       </View>
       {/* White's side of the board — the black pieces white has captured */}
@@ -127,24 +152,17 @@ export const Chessboard: React.FC<ChessboardProps> = ({ onMove, game: providedGa
           testID={flipped ? 'capturedByBlack' : 'capturedByWhite'}
         />
       </View>
-      {game.pendingPromotion && (
-        <View style={{ marginTop: 12 }}>
-          <PromotionPicker
-            color={game.turn}
-            size={Math.max(36, Math.floor(squareSize * 0.9))}
-            onSelect={game.completePromotion}
-            onCancel={game.cancelPromotion}
-          />
-        </View>
-      )}
       <Text testID="turnIndicator" style={[styles.summary, (game.isCheck || game.gameOverText) && styles.alert]}>
         {game.gameOverText ?? `${game.turn === 'w' ? 'White' : 'Black'} to move${game.isCheck ? ' — check!' : ''}`}
       </Text>
-      {game.lastMoveSan && (
-        <Text testID="moveSummary" style={styles.summary}>
-          Last move: {game.lastMoveSan}
-        </Text>
-      )}
+      {/* The line keeps its height before the first move, so the board doesn't jump when it appears */}
+      <View style={styles.summaryLine}>
+        {game.lastMoveSan && (
+          <Text testID="moveSummary" style={styles.summary}>
+            Last move: {game.lastMoveSan}
+          </Text>
+        )}
+      </View>
     </View>
   )
 }
@@ -169,5 +187,16 @@ const styles = StyleSheet.create({
   alert: {
     color: '#c00000',
     fontWeight: '600',
+  },
+  summaryLine: {
+    minHeight: 40,
+  },
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.35)',
   },
 })
