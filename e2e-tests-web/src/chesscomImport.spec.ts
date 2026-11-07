@@ -36,6 +36,21 @@ test('link a chess.com account and watch games import', async ({ page }) => {
   await expect(page.getByTestId('gamesImportedText')).toHaveText(/[1-9]\d* games? imported/)
 })
 
+test('imported games are analyzed and a puzzle appears', async ({ page }) => {
+  await signUpAndGoToSettings(page)
+
+  await page.getByTestId('chesscomUsernameInput').fill(FIXTURE_PLAYER)
+  await page.getByTestId('linkChesscomButton').click()
+  await expect(page.getByTestId('linkedUsername')).toContainText(FIXTURE_PLAYER)
+
+  // Import first, then analysis drains in the background. Generous timeout: this is the whole
+  // pipeline — chess.com fixture -> tactica-core -> tactica-analysis -> stockfish -> puzzles.
+  await expect(page.getByTestId('gamesAnalyzedText')).toContainText(/[1-9]\d* analyzed/, { timeout: 180_000 })
+
+  // The fixture includes a game where the player hangs his queen, so at least one puzzle is certain
+  await expect(page.getByTestId('puzzleCountText')).toHaveText(/[1-9]\d* puzzles? found/, { timeout: 180_000 })
+})
+
 test('linking a nonexistent chess.com username shows a validation error', async ({ page }) => {
   await signUpAndGoToSettings(page)
 

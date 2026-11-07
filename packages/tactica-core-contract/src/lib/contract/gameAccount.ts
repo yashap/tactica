@@ -9,6 +9,10 @@ export type GameSource = z.infer<typeof GameSourceSchema>
 
 export const GameAccountStatsSchema = z.object({
   gamesImported: z.number().int().nonnegative(),
+  /** Games whose analysis has finished — the rest are still queued or in flight. */
+  gamesAnalyzed: z.number().int().nonnegative(),
+  /** Puzzles found across all of this account's games. */
+  puzzleCount: z.number().int().nonnegative(),
   /** `true` while an import job for this account is queued or running. */
   syncActive: z.boolean(),
 })

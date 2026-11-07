@@ -39,13 +39,14 @@ describe('GameRepository (integration)', () => {
       newGameRow(userId, account.id, 'g1', new Date('2024-01-01')),
       newGameRow(userId, account.id, 'g2', new Date('2024-01-02')),
     ])
-    expect(insertedFirst).toBe(2)
+    expect(insertedFirst).toHaveLength(2)
 
     const insertedSecond = await repo.insertMany([
       newGameRow(userId, account.id, 'g2', new Date('2024-01-02')), // duplicate
       newGameRow(userId, account.id, 'g3', new Date('2024-01-03')),
     ])
-    expect(insertedSecond).toBe(1)
+    // Only the new row comes back, which is what tells the importer what to queue for analysis
+    expect(insertedSecond).toHaveLength(1)
     expect(await repo.countByGameAccount(userId, account.id)).toBe(3)
   })
 
@@ -74,7 +75,7 @@ describe('GameRepository (integration)', () => {
     })
     await repo.insertMany([newGameRow(userId, account.id, 'shared-game', new Date())])
     const inserted = await repo.insertMany([newGameRow(otherUserId, otherAccount.id, 'shared-game', new Date())])
-    expect(inserted).toBe(1)
+    expect(inserted).toHaveLength(1)
   })
 
   it('paginates with a keyset cursor ordered by playedAt', async () => {

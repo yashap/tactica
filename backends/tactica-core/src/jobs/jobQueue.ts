@@ -6,11 +6,18 @@ export interface ImportGamesPayload {
   userId: string
 }
 
+export interface AnalyzeGamePayload {
+  gameId: string
+  userId: string
+}
+
 export interface JobHandlers {
   importGames: (payload: ImportGamesPayload) => Promise<void>
+  analyzeGame: (payload: AnalyzeGamePayload) => Promise<void>
 }
 
 const IMPORT_GAMES_QUEUE = 'import-games'
+const ANALYZE_GAME_QUEUE = 'analyze-game'
 
 /** pg-boss job states meaning "queued or running" (as opposed to reaching a terminal state). */
 const ACTIVE_JOB_STATES: ReadonlySet<string> = new Set(['created', 'retry', 'active'])
@@ -45,10 +52,23 @@ export class JobQueue {
       retryDelay: 30,
       retryBackoff: true,
     })
+    // Analysis is slow (seconds of engine time per game) and the engine is a single-slot resource,
+    // so this queue exists mainly to spread that work out rather than to run it in parallel.
+    await this.boss.createQueue(ANALYZE_GAME_QUEUE, {
+      policy: 'stately',
+      retryLimit: 3,
+      retryDelay: 30,
+      retryBackoff: true,
+    })
     if (options.worker) {
       await this.boss.work<ImportGamesPayload>(IMPORT_GAMES_QUEUE, async (jobs) => {
         for (const job of jobs) {
           await this.handlers.importGames(job.data)
+        }
+      })
+      await this.boss.work<AnalyzeGamePayload>(ANALYZE_GAME_QUEUE, async (jobs) => {
+        for (const job of jobs) {
+          await this.handlers.analyzeGame(job.data)
         }
       })
     }
@@ -60,6 +80,11 @@ export class JobQueue {
    */
   public async enqueueImportGames(payload: ImportGamesPayload): Promise<string | null> {
     return this.boss.send(IMPORT_GAMES_QUEUE, payload, { singletonKey: payload.gameAccountId })
+  }
+
+  /** Queue analysis for one game. Keyed by game id, so a game can't be queued twice at once. */
+  public async enqueueAnalyzeGame(payload: AnalyzeGamePayload): Promise<string | null> {
+    return this.boss.send(ANALYZE_GAME_QUEUE, payload, { singletonKey: payload.gameId })
   }
 
   /** Whether the given import job is still queued or running. */

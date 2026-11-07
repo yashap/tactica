@@ -1,6 +1,7 @@
 import { InputValidationError } from '@tactica/errors'
 import { type Cursor, type Pagination, type ParseOrdering } from '@tactica/pagination'
-import { and, asc, count, desc, eq, gt, inArray, lt, or, type SQL } from 'drizzle-orm'
+import { type Evaluation } from '@tactica/tactica-core-contract'
+import { and, asc, count, desc, eq, gt, inArray, lt, ne, or, type SQL } from 'drizzle-orm'
 import { type Db } from '../../db/client.js'
 import { gameTable, type GameRow, type NewGameRow } from '../../db/schema.js'
 
@@ -23,16 +24,63 @@ export class GameRepository {
 
   /**
    * Insert games, silently skipping any already imported (unique on userId/source/externalGameId).
-   * Returns the number actually inserted.
+   * Returns the rows that were actually inserted.
    */
-  public async insertMany(rows: NewGameRow[]): Promise<number> {
-    if (rows.length === 0) return 0
-    const inserted = await this.db
+  public async insertMany(rows: NewGameRow[]): Promise<{ id: string }[]> {
+    if (rows.length === 0) return []
+    return this.db
       .insert(gameTable)
       .values(rows)
       .onConflictDoNothing({ target: [gameTable.userId, gameTable.source, gameTable.externalGameId] })
       .returning({ id: gameTable.id })
-    return inserted.length
+  }
+
+  /** Record how far analysis has got, optionally storing the evals it produced. */
+  public async setAnalysisStatus(
+    userId: string,
+    id: string,
+    analysisStatus: GameRow['analysisStatus'],
+    moveEvals?: Evaluation[],
+  ): Promise<void> {
+    await this.db
+      .update(gameTable)
+      .set({ analysisStatus, ...(moveEvals === undefined ? {} : { moveEvals }), updatedAt: new Date() })
+      .where(and(eq(gameTable.userId, userId), eq(gameTable.id, id)))
+  }
+
+  /** Games whose analysis has finished, for the account's progress display. */
+  public async countAnalyzedByGameAccount(userId: string, gameAccountId: string): Promise<number> {
+    const [row] = await this.db
+      .select({ value: count() })
+      .from(gameTable)
+      .where(
+        and(
+          eq(gameTable.userId, userId),
+          eq(gameTable.gameAccountId, gameAccountId),
+          eq(gameTable.analysisStatus, 'analyzed'),
+        ),
+      )
+    return row?.value ?? 0
+  }
+
+  /**
+   * Ids of the account's games that still need analysing, newest first so recent games turn into
+   * puzzles soonest. "Still need" is everything not yet `analyzed`, not just `pending` — a game left
+   * `analyzing` by a dead worker or `failed` after its final retry is just as stuck.
+   */
+  public async findIdsAwaitingAnalysis(userId: string, gameAccountId: string): Promise<string[]> {
+    const rows = await this.db
+      .select({ id: gameTable.id })
+      .from(gameTable)
+      .where(
+        and(
+          eq(gameTable.userId, userId),
+          eq(gameTable.gameAccountId, gameAccountId),
+          ne(gameTable.analysisStatus, 'analyzed'),
+        ),
+      )
+      .orderBy(desc(gameTable.playedAt), desc(gameTable.id))
+    return rows.map((row) => row.id)
   }
 
   /**
