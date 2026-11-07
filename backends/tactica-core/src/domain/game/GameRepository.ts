@@ -1,6 +1,6 @@
 import { InputValidationError } from '@tactica/errors'
 import { type Cursor, type Pagination, type ParseOrdering } from '@tactica/pagination'
-import { type Evaluation } from '@tactica/tactica-core-contract'
+import { type MoveEval } from '@tactica/tactica-core-contract'
 import { and, asc, count, desc, eq, gt, inArray, lt, ne, or, type SQL } from 'drizzle-orm'
 import { type Db } from '../../db/client.js'
 import { gameTable, type GameRow, type NewGameRow } from '../../db/schema.js'
@@ -40,7 +40,7 @@ export class GameRepository {
     userId: string,
     id: string,
     analysisStatus: GameRow['analysisStatus'],
-    moveEvals?: Evaluation[],
+    moveEvals?: MoveEval[],
   ): Promise<void> {
     await this.db
       .update(gameTable)
@@ -58,6 +58,21 @@ export class GameRepository {
           eq(gameTable.userId, userId),
           eq(gameTable.gameAccountId, gameAccountId),
           inArray(gameTable.analysisStatus, ['pending', 'analyzing']),
+        ),
+      )
+    return row?.value ?? 0
+  }
+
+  /** Games whose analysis failed for good (every retry used up), so the app can say so. */
+  public async countFailedAnalysisByGameAccount(userId: string, gameAccountId: string): Promise<number> {
+    const [row] = await this.db
+      .select({ value: count() })
+      .from(gameTable)
+      .where(
+        and(
+          eq(gameTable.userId, userId),
+          eq(gameTable.gameAccountId, gameAccountId),
+          eq(gameTable.analysisStatus, 'failed'),
         ),
       )
     return row?.value ?? 0

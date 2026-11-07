@@ -17,6 +17,11 @@ export const GameAccountStatsSchema = z.object({
    * forever — which would leave the UI spinning and polling with nothing left to wait for.
    */
   gamesPendingAnalysis: z.number().int().nonnegative(),
+  /**
+   * Games whose analysis failed even after retries. They're not pending — nothing more will happen
+   * on its own — but a sync re-queues them, so they're shown rather than silently dropped.
+   */
+  gamesFailedAnalysis: z.number().int().nonnegative(),
   /** Puzzles found across all of this account's games. */
   puzzleCount: z.number().int().nonnegative(),
   /** `true` while an import job for this account is queued or running. */

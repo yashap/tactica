@@ -20,9 +20,12 @@ export interface PuzzleWithGame extends PuzzleRow {
   playedAt: Date
 }
 
-/** As above, plus whether the user has ever got this one right. */
+/** As above, plus how the user has fared with it. */
 export interface SolvablePuzzle extends PuzzleWithGame {
+  /** An accepted move has been played at least once. */
   solved: boolean
+  /** The very first attempt was an accepted move — before any failure revealed the answer. */
+  solvedFirstTry: boolean
 }
 
 export const parsePuzzleOrdering: ParseOrdering<PuzzleOrderBy, Date> = ({ orderBy, lastOrderValueSeen }) => {
@@ -94,25 +97,32 @@ export class PuzzleRepository {
   }
 
   /**
-   * Annotate a page of puzzles with whether each has been solved. Done as one extra query over the
-   * page's ids rather than a correlated subquery per row — simpler to read, and the page is small.
+   * Annotate a page of puzzles with how each has gone. One extra query over the page's attempts
+   * (oldest first) rather than a correlated subquery per row — simpler to read, and the page is small.
    */
   private async withSolved(rows: PuzzleWithGame[]): Promise<SolvablePuzzle[]> {
     if (rows.length === 0) return []
-    const solvedRows = await this.db
-      .selectDistinct({ puzzleId: puzzleAttemptTable.puzzleId })
+    const attempts = await this.db
+      .select({ puzzleId: puzzleAttemptTable.puzzleId, correct: puzzleAttemptTable.correct })
       .from(puzzleAttemptTable)
       .where(
-        and(
-          eq(puzzleAttemptTable.correct, true),
-          inArray(
-            puzzleAttemptTable.puzzleId,
-            rows.map((row) => row.id),
-          ),
+        inArray(
+          puzzleAttemptTable.puzzleId,
+          rows.map((row) => row.id),
         ),
       )
-    const solved = new Set(solvedRows.map((row) => row.puzzleId))
-    return rows.map((row) => ({ ...row, solved: solved.has(row.id) }))
+      .orderBy(asc(puzzleAttemptTable.createdAt), asc(puzzleAttemptTable.id))
+    const solved = new Set<string>()
+    const firstAttemptCorrect = new Map<string, boolean>()
+    for (const attempt of attempts) {
+      if (attempt.correct) solved.add(attempt.puzzleId)
+      if (!firstAttemptCorrect.has(attempt.puzzleId)) firstAttemptCorrect.set(attempt.puzzleId, attempt.correct)
+    }
+    return rows.map((row) => ({
+      ...row,
+      solved: solved.has(row.id),
+      solvedFirstTry: firstAttemptCorrect.get(row.id) === true,
+    }))
   }
 
   public async countByGameAccount(userId: string, gameAccountId: string): Promise<number> {

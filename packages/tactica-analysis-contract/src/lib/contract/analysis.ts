@@ -95,7 +95,11 @@ export const AnalysisSchema = z.object({
   playerColor: ChessColorSchema,
   /** Present once `status` is `succeeded`. */
   result: AnalysisResultSchema.nullable(),
-  /** Present once `status` is `failed`. */
+  /**
+   * The most recent failure. Always set when `status` is `failed`, which is **final** — the service
+   * has used up its own retries. It can also be set while `queued`, meaning an attempt failed and a
+   * retry is scheduled; callers should keep polling.
+   */
   error: z.string().nullable(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
@@ -107,6 +111,12 @@ export const CreateAnalysisRequestSchema = z.object({
   /** Whose mistakes we're looking for. */
   playerColor: ChessColorSchema,
   settings: AnalysisSettingsSchema.optional(),
+  /**
+   * Makes submission safe to retry. A repeat submission with the same key gets the existing analysis
+   * back (so a caller that timed out can resume polling) rather than queuing the game again; if that
+   * analysis had finally failed, it's re-queued. tactica-core uses its game id.
+   */
+  idempotencyKey: z.string().min(1).max(200).optional(),
 })
 export type CreateAnalysisRequest = z.infer<typeof CreateAnalysisRequestSchema>
 
@@ -117,7 +127,8 @@ export const tacticaAnalysisContract = c.router(
   {
     /**
      * Submitting returns immediately with `status: 'queued'` — a full game is seconds of engine time,
-     * far too long to hold a request open. Poll `get` until the status is terminal.
+     * far too long to hold a request open. Poll `get` until the status is terminal. An unparseable
+     * PGN is rejected here with a 400 rather than queued to fail later.
      */
     create: {
       method: 'POST',

@@ -1,8 +1,10 @@
+import { InputValidationError } from '@tactica/errors'
 import { getSessionUserId, tacticaRequestValidationErrorHandler } from '@tactica/fastify-utils'
 import { buildPaginatedResponse, parsePagination } from '@tactica/pagination'
 import { type Puzzle, tacticaCoreContract } from '@tactica/tactica-core-contract'
 import { initServer } from '@ts-rest/fastify'
 import type { FastifyInstance } from 'fastify'
+import { isAcceptableMove, isLegalMove } from './puzzleGrading.js'
 import { parsePuzzleOrdering, type PuzzleRepository, type SolvablePuzzle } from './PuzzleRepository.js'
 
 export interface PuzzleRoutesDeps {
@@ -28,19 +30,12 @@ const toDto = (row: SolvablePuzzle): Puzzle => ({
   winProbAfter: row.winProbAfter,
   severity: row.severity,
   solved: row.solved,
+  solvedFirstTry: row.solvedFirstTry,
   opponentUsername: row.opponentUsername,
   playedAt: row.playedAt.toISOString(),
   createdAt: row.createdAt.toISOString(),
   updatedAt: row.updatedAt.toISOString(),
 })
-
-/**
- * A move counts if it's the engine's pick or any of the near-equal alternatives it found. Positions
- * often have several equally good ideas, and failing someone for finding a different one would be
- * both wrong and infuriating.
- */
-const isAcceptableMove = (puzzle: SolvablePuzzle, moveUci: string): boolean =>
-  moveUci === puzzle.bestMoveUci || puzzle.acceptableMovesUci.includes(moveUci)
 
 export const registerPuzzleRoutes = async (app: FastifyInstance, deps: PuzzleRoutesDeps): Promise<void> => {
   const s = initServer()
@@ -65,6 +60,9 @@ export const registerPuzzleRoutes = async (app: FastifyInstance, deps: PuzzleRou
       const puzzle = await deps.puzzleRepository.findById(userId, params.id)
       if (!puzzle) {
         return { status: 404, body: { message: 'Puzzle not found', code: 'NotFoundError' } }
+      }
+      if (!isLegalMove(puzzle, body.moveUci)) {
+        throw new InputValidationError(`${body.moveUci} is not a legal move in this puzzle`)
       }
       // Graded here rather than trusting the client's verdict: the client grades too, for instant
       // feedback, but this is what actually decides whether the puzzle counts as solved.

@@ -100,6 +100,26 @@
       "eco": "https://www.chess.com/openings/Pirc-Defense-Classical-Variation-4...Bg7-5.Be3-a6"
     },
     {
+      "url": "https://www.chess.com/game/live/e2e-black-hangs-queen",
+      "uuid": "e2e00000-0000-4000-8000-000000000002",
+      "pgn": "[Event \"e2e fixture\"]\n[Site \"Chess.com\"]\n[Date \"2026.06.14\"]\n[White \"queen_snatcher\"]\n[Black \"erik\"]\n[Result \"1-0\"]\n[TimeControl \"600\"]\n\n1. e4 e5 2. Nf3 Qh4 3. Nxh4 1-0\n",
+      "time_control": "600",
+      "end_time": 1780900000,
+      "rated": true,
+      "rules": "chess",
+      "time_class": "rapid",
+      "white": {
+        "username": "queen_snatcher",
+        "result": "win",
+        "rating": 1500
+      },
+      "black": {
+        "username": "erik",
+        "result": "resigned",
+        "rating": 1500
+      }
+    },
+    {
       "url": "https://www.chess.com/game/live/e2e-hanging-queen",
       "uuid": "e2e00000-0000-4000-8000-000000000001",
       "pgn": "[Event \"e2e fixture\"]\n[Site \"Chess.com\"]\n[Date \"2026.06.15\"]\n[White \"erik\"]\n[Black \"blunder_bait\"]\n[Result \"0-1\"]\n[TimeControl \"600\"]\n\n1. e4 e5 2. Qh5 Nc6 3. Qxf7+ Kxf7 0-1\n",

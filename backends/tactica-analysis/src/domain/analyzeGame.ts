@@ -30,6 +30,19 @@ export interface AnalyzeGameRequest {
 
 export interface AnalyzeGameDeps {
   engine: StockfishEvaluator
+  /** Cancels outstanding engine calls, e.g. when the job running this analysis is abandoned. */
+  signal?: AbortSignal
+}
+
+/** Load a PGN, or throw an {@link InputValidationError} describing why it can't be replayed. */
+export const parsePgn = (pgn: string): Chess => {
+  const game = new Chess()
+  try {
+    game.loadPgn(pgn)
+  } catch (error) {
+    throw new InputValidationError(`Could not parse PGN: ${(error as Error).message}`)
+  }
+  return game
 }
 
 /** chess.js speaks 'w'/'b'; our domain spells the colours out. Convert only at this boundary. */
@@ -65,14 +78,14 @@ const toSanLine = (fen: string, pvUci: string[]): string[] => {
 const toSanMove = (fen: string, uci: string): string | undefined => toSanLine(fen, [uci])[0]
 
 /** Evaluate one position, white-relative. Terminal positions are scored without troubling the engine. */
-const evaluatePosition = async (engine: StockfishEvaluator, fen: string, movetimeMs: number): Promise<Evaluation> => {
+const evaluatePosition = async (deps: AnalyzeGameDeps, fen: string, movetimeMs: number): Promise<Evaluation> => {
   const board = new Chess(fen)
   if (board.isGameOver()) {
     // The engine has nothing to search here and answers with no lines at all, so asking would just
     // burn a round trip and hand us back nothing to score.
     return terminalEvaluation({ isCheckmate: board.isCheckmate() }, sideToMoveOf(fen))
   }
-  const { lines } = await engine.evaluate({ fen, movetimeMs, multiPv: 1 })
+  const { lines } = await deps.engine.evaluate({ fen, movetimeMs, multiPv: 1 }, deps.signal)
   const best = lines[0]
   if (!best) {
     throw new Error(`Engine returned no lines for a non-terminal position: ${fen}`)
@@ -96,12 +109,7 @@ const scoreOf = (line: RawEngineLine): Evaluation => ({
  */
 export const analyzeGame = async (deps: AnalyzeGameDeps, request: AnalyzeGameRequest): Promise<AnalysisResult> => {
   const logger = getLogger()
-  const game = new Chess()
-  try {
-    game.loadPgn(request.pgn)
-  } catch (error) {
-    throw new InputValidationError(`Could not parse PGN: ${(error as Error).message}`)
-  }
+  const game = parsePgn(request.pgn)
 
   const history = game.history({ verbose: true })
   if (history.length === 0) {
@@ -115,33 +123,32 @@ export const analyzeGame = async (deps: AnalyzeGameDeps, request: AnalyzeGameReq
   // Pass 1: one cheap evaluation per position. Sequential on purpose — the engine serializes anyway.
   const evals: Evaluation[] = []
   for (const fen of positions) {
-    evals.push(await evaluatePosition(deps.engine, fen, request.scanMovetimeMs))
+    evals.push(await evaluatePosition(deps, fen, request.scanMovetimeMs))
   }
 
-  const moveEvals: MoveEval[] = evals.map((evaluation, ply) => ({ ply, ...evaluation }))
-
   const playerColor = toChessJsColor(request.playerColor)
+  const winProbFor = (evaluation: Evaluation): number =>
+    winProbFromEvaluation(toPlayerRelative(evaluation, request.playerColor))
   const candidates = history.flatMap((move, ply) => {
     if (move.color !== playerColor) return []
     const before = evals[ply]
     const after = evals[ply + 1]
     if (!before || !after) return []
-    const winProbBefore = winProbFromEvaluation(toPlayerRelative(before, request.playerColor))
-    const winProbAfter = winProbFromEvaluation(toPlayerRelative(after, request.playerColor))
-    const severity = classifySeverity(winProbBefore - winProbAfter)
+    const severity = classifySeverity(winProbFor(before) - winProbFor(after))
     if (severity === undefined || !isPuzzleWorthy(severity)) return []
-    return [{ move, ply, before, after, winProbBefore, winProbAfter, severity }]
+    return [{ move, ply }]
   })
 
-  // Pass 2: only the positions that turned out to matter.
+  // Pass 2: only the positions that turned out to matter. The scan is only a sieve — 80ms searches
+  // are noisy around tactics — so each candidate is re-judged at depth before it becomes a puzzle,
+  // and every number on the puzzle comes from this pass, consistent with the engine lines it carries.
   const blunders: Blunder[] = []
   for (const candidate of candidates) {
     const fen = candidate.move.before
-    const { lines } = await deps.engine.evaluate({
-      fen,
-      movetimeMs: request.deepMovetimeMs,
-      multiPv: request.multiPv,
-    })
+    const { lines } = await deps.engine.evaluate(
+      { fen, movetimeMs: request.deepMovetimeMs, multiPv: request.multiPv },
+      deps.signal,
+    )
     const bestLine = lines[0]
     const bestMoveUci = bestLine?.pvUci[0]
     if (!bestLine || bestMoveUci === undefined) {
@@ -169,22 +176,47 @@ export const analyzeGame = async (deps: AnalyzeGameDeps, request: AnalyzeGameReq
       .filter((line) => bestWinProb - winProbFromEvaluation(scoreOf(line)) <= ACCEPTABLE_MOVE_WIN_PROB_MARGIN)
       .flatMap((line) => (line.pvUci[0] === undefined ? [] : [line.pvUci[0]]))
 
+    const playedMoveUci = uciOf(candidate.move)
+    if (acceptableMovesUci.includes(playedMoveUci)) {
+      // The deeper search thinks the move was fine; a puzzle whose answer is the move you played
+      // would mark you wrong for playing it.
+      logger.info('Deep pass cleared a flagged move', { fen, playedMoveUci })
+      continue
+    }
+
+    // Re-score both sides of the move at depth. The player is to move in `fen`, so PV1's score is
+    // already player-relative; normalize it to white like every other eval in the contract.
+    const evalBefore = toWhiteRelative(scoreOf(bestLine), sideToMoveOf(fen))
+    const evalAfter = await evaluatePosition(deps, candidate.move.after, request.deepMovetimeMs)
+    const winProbBefore = winProbFor(evalBefore)
+    const winProbAfter = winProbFor(evalAfter)
+    const severity = classifySeverity(winProbBefore - winProbAfter)
+    if (severity === undefined || !isPuzzleWorthy(severity)) {
+      logger.info('Deep pass downgraded a flagged move', { fen, playedMoveUci, severity })
+      continue
+    }
+    // Keep the eval graph consistent with the puzzle where we looked harder
+    evals[candidate.ply] = evalBefore
+    evals[candidate.ply + 1] = evalAfter
+
     blunders.push({
       ply: candidate.ply,
       fen,
-      playedMoveUci: uciOf(candidate.move),
+      playedMoveUci,
       playedMoveSan: candidate.move.san,
       bestMoveUci,
       bestMoveSan,
       acceptableMovesUci,
       engineLines,
-      evalBefore: candidate.before,
-      evalAfter: candidate.after,
-      winProbBefore: candidate.winProbBefore,
-      winProbAfter: candidate.winProbAfter,
-      severity: candidate.severity,
+      evalBefore,
+      evalAfter,
+      winProbBefore,
+      winProbAfter,
+      severity,
     })
   }
+
+  const moveEvals: MoveEval[] = evals.map((evaluation, ply) => ({ ply, ...evaluation }))
 
   logger.info('Analyzed game', {
     plies: history.length,

@@ -110,27 +110,27 @@ describe('terminalEvaluation', () => {
 })
 
 describe('classifySeverity', () => {
-  it('applies the lichess tiers at their boundaries', () => {
-    expect(classifySeverity(0.3)).toBe('blunder')
+  it('applies the lichess tiers, halved onto our 0-1 scale, at their boundaries', () => {
+    expect(classifySeverity(0.15)).toBe('blunder')
     expect(classifySeverity(0.45)).toBe('blunder')
-    expect(classifySeverity(0.2)).toBe('mistake')
-    expect(classifySeverity(0.299)).toBe('mistake')
-    expect(classifySeverity(0.1)).toBe('inaccuracy')
-    expect(classifySeverity(0.199)).toBe('inaccuracy')
+    expect(classifySeverity(0.1)).toBe('mistake')
+    expect(classifySeverity(0.149)).toBe('mistake')
+    expect(classifySeverity(0.05)).toBe('inaccuracy')
+    expect(classifySeverity(0.099)).toBe('inaccuracy')
   })
 
   it('ignores moves that barely move the needle', () => {
-    expect(classifySeverity(0.099)).toBeUndefined()
+    expect(classifySeverity(0.049)).toBeUndefined()
     expect(classifySeverity(0)).toBeUndefined()
     // An *improving* move (negative drop) is obviously not a mistake
     expect(classifySeverity(-0.4)).toBeUndefined()
   })
 
   it('does not flag a cosmetic swing in an already-won position', () => {
-    // +900 -> +600 is 300 centipawns lost but barely any win probability, which is the whole reason
+    // +1200 -> +900 is 300 centipawns lost but barely any win probability, which is the whole reason
     // this thresholds on win probability instead of centipawn loss.
-    const drop = winProbFromCp(900) - winProbFromCp(600)
-    expect(drop).toBeLessThan(0.1)
+    const drop = winProbFromCp(1200) - winProbFromCp(900)
+    expect(drop).toBeLessThan(0.05)
     expect(classifySeverity(drop)).toBeUndefined()
   })
 
@@ -138,7 +138,16 @@ describe('classifySeverity', () => {
     // 0 -> -300 is the same 300 centipawns, but it hands away the game
     const drop = winProbFromCp(0) - winProbFromCp(-300)
     expect(drop).toBeGreaterThan(0.2)
-    expect(classifySeverity(drop)).toBe('mistake')
+    expect(classifySeverity(drop)).toBe('blunder')
+  })
+
+  it('agrees with lichess near equality', () => {
+    // lichess (on its doubled scale): a 0.3 drop in winning chances is a blunder, 0.2 a mistake,
+    // 0.1 an inaccuracy. From an even position that's roughly -170cp, -110cp and -55cp.
+    expect(classifySeverity(winProbFromCp(0) - winProbFromCp(-200))).toBe('blunder')
+    expect(classifySeverity(winProbFromCp(0) - winProbFromCp(-130))).toBe('mistake')
+    expect(classifySeverity(winProbFromCp(0) - winProbFromCp(-80))).toBe('inaccuracy')
+    expect(classifySeverity(winProbFromCp(0) - winProbFromCp(-40))).toBeUndefined()
   })
 
   it('treats hanging a winning position as a blunder', () => {

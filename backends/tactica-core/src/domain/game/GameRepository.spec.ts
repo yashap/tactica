@@ -115,8 +115,10 @@ describe('GameRepository (integration)', () => {
     await repo.setAnalysisStatus(userId, games[2]!.id, 'failed')
 
     expect(await repo.countAnalyzedByGameAccount(userId, account.id)).toBe(1)
-    // The failed one is neither analyzed nor pending — otherwise the UI would wait on it forever
+    // The failed one is neither analyzed nor pending — otherwise the UI would wait on it forever —
+    // but it is counted, so the UI can say so instead of silently dropping it
     expect(await repo.countPendingAnalysisByGameAccount(userId, account.id)).toBe(1)
+    expect(await repo.countFailedAnalysisByGameAccount(userId, account.id)).toBe(1)
 
     await repo.setAnalysisStatus(userId, games[1]!.id, 'analyzed')
     expect(await repo.countPendingAnalysisByGameAccount(userId, account.id)).toBe(0)

@@ -24,6 +24,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@tactica/correlation-id-propagator": "workspace:*",
     "@tactica/drizzle-utils": "workspace:*",
     "@tactica/errors": "workspace:*",
     "@tactica/fastify-utils": "workspace:*",

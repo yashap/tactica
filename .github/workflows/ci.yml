@@ -63,6 +63,14 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Build image, run container, assert against the engine
         run: pnpm --filter @tactica/stockfish test:smoke
+      # The analysis service's real-engine specs skip themselves when no engine is reachable (keeping
+      # `pnpm test` hermetic), so nothing else in CI ever runs them. Reuse the image just built.
+      - name: Analysis specs against the real engine
+        run: |
+          docker run -d --rm --name analysis_engine_spec --init -p 3598:3503 tactica-stockfish:smoke
+          for _ in $(seq 1 60); do curl -sf http://localhost:3598/health >/dev/null && break; sleep 1; done
+          STOCKFISH_URL=http://localhost:3598 REQUIRE_ENGINE=true \
+            pnpm --filter @tactica/tactica-analysis exec vitest run src/domain/analyzeGame.engine.spec.ts
 
   e2e-web:
     runs-on: ubuntu-latest

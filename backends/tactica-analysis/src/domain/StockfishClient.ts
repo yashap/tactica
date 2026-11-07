@@ -1,6 +1,7 @@
+import { CorrelationIdPropagator } from '@tactica/correlation-id-propagator'
+import { InternalServerError } from '@tactica/errors'
 import { stockfishContract } from '@tactica/stockfish-contract'
 import { initClient } from '@ts-rest/core'
-import { InternalServerError } from '@tactica/errors'
 
 export interface EvaluateRequest {
   fen: string
@@ -26,8 +27,15 @@ export interface EvaluateResult {
  * analysis logic be tested exhaustively against scripted evaluations, with no container in sight.
  */
 export interface StockfishEvaluator {
-  evaluate(request: EvaluateRequest): Promise<EvaluateResult>
+  /** `signal` cancels the request, e.g. when the job running it is abandoned. */
+  evaluate(request: EvaluateRequest, signal?: AbortSignal): Promise<EvaluateResult>
 }
+
+/**
+ * Headroom on top of the search time before a request counts as hung: queueing behind other
+ * searches (the engine is single-slot), HTTP, and the engine's own wind-down.
+ */
+const REQUEST_GRACE_MS = 15_000
 
 /**
  * Talks to the stockfish service. Scores come back **side-to-move-relative**, exactly as UCI reports
@@ -43,8 +51,16 @@ export class StockfishClient implements StockfishEvaluator {
     this.client = initClient(stockfishContract, { baseUrl, baseHeaders: {} })
   }
 
-  public async evaluate(request: EvaluateRequest): Promise<EvaluateResult> {
-    const response = await this.client.evaluate({ body: request })
+  public async evaluate(request: EvaluateRequest, signal?: AbortSignal): Promise<EvaluateResult> {
+    // Without a timeout, a hung engine call would hold the job forever — past pg-boss's expiry, so
+    // its retry would run concurrently with the original.
+    const timeout = AbortSignal.timeout(request.movetimeMs + REQUEST_GRACE_MS)
+    const correlationId = CorrelationIdPropagator.getContext()
+    const response = await this.client.evaluate({
+      body: request,
+      ...(correlationId ? { extraHeaders: { 'x-correlation-id': correlationId } } : {}),
+      fetchOptions: { signal: signal ? AbortSignal.any([signal, timeout]) : timeout },
+    })
     if (response.status !== 200) {
       throw new InternalServerError(
         `stockfish /evaluate failed with ${response.status}: ${JSON.stringify(response.body)}`,

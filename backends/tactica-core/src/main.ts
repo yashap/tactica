@@ -1,3 +1,4 @@
+import { CorrelationIdPropagator } from '@tactica/correlation-id-propagator'
 import { FastifyAppBuilder, requireSession } from '@tactica/fastify-utils'
 import { getLogger } from '@tactica/logging'
 import { TacticaAnalysisClient } from '@tactica/tactica-analysis-client'
@@ -28,56 +29,80 @@ const start = async (): Promise<void> => {
   const analysisClient = new TacticaAnalysisClient({
     baseUrl: config.analysis.url,
     internalApiKey: config.analysis.internalApiKey,
+    // Forward the job's correlation id, so one game's trace runs core → analysis → stockfish
+    requestHeaders: (): Record<string, string> => {
+      const correlationId = CorrelationIdPropagator.getContext()
+      return correlationId ? { 'x-correlation-id': correlationId } : {}
+    },
   })
 
   // The import job hands games awaiting analysis to the analysis queue, which is the same queue that
   // owns it — hence the self-reference. Safe because `enqueueAnalysis` only runs once a job is
   // executing, long after construction.
-  const jobQueue: JobQueue = new JobQueue(config.databaseUrl, {
-    importGames: buildImportGamesJob({
-      gameAccountRepository,
-      gameRepository,
-      gameSources,
-      maxMonths: config.importMaxMonths,
-      enqueueAnalysis: (payload) => jobQueue.enqueueAnalyzeGame(payload),
-    }),
-    analyzeGame: buildAnalyzeGameJob({
-      gameRepository,
-      puzzleRepository,
-      analysisClient,
-      pollIntervalMs: config.analysis.pollIntervalMs,
-      pollTimeoutMs: config.analysis.pollTimeoutMs,
-    }),
-  })
+  const jobQueue: JobQueue = new JobQueue(
+    config.databaseUrl,
+    {
+      importGames: buildImportGamesJob({
+        gameAccountRepository,
+        gameRepository,
+        gameSources,
+        maxMonths: config.importMaxMonths,
+        enqueueAnalysis: (payload) => jobQueue.enqueueAnalyzeGame(payload),
+      }),
+      analyzeGame: buildAnalyzeGameJob({
+        gameRepository,
+        puzzleRepository,
+        analysisClient,
+        pollIntervalMs: config.analysis.pollIntervalMs,
+        pollTimeoutMs: config.analysis.pollTimeoutMs,
+      }),
+    },
+    { analyzeGameTimeoutMs: config.analysis.pollTimeoutMs },
+  )
 
   const app = await FastifyAppBuilder.build({
     kind: 'userFacing',
     websiteDomain: config.websiteDomain,
     registerRoutes: async (instance) => {
-      // Gate every /tactica-core/* path behind SuperTokens session verification. The /auth/*
-      // paths handled by the SuperTokens plugin are unaffected — they need to be reachable
-      // without a session so users can sign up / sign in.
-      instance.addHook('preHandler', async (req, reply) => {
-        if (req.url.startsWith('/tactica-core/')) {
-          await requireSession(req, reply)
-        }
+      // Every tactica-core route requires a SuperTokens session. The check is a hook on an
+      // encapsulated child scope, so it guards exactly the routes registered inside it — by what the
+      // router matched, never by string-matching `req.url`, which is still percent-encoded (so
+      // `/%74actica-core/...` would route here yet slip past a prefix check). The /auth/* routes
+      // from the SuperTokens plugin live outside this scope, reachable for sign up / sign in.
+      await instance.register(async (authenticated) => {
+        authenticated.addHook('preHandler', requireSession)
+        await registerSessionRoutes(authenticated)
+        await registerGameAccountRoutes(authenticated, {
+          gameAccountRepository,
+          gameRepository,
+          puzzleRepository,
+          gameSources,
+          jobQueue,
+        })
+        await registerGameRoutes(authenticated, { gameRepository })
+        await registerPuzzleRoutes(authenticated, { puzzleRepository })
       })
-      await registerSessionRoutes(instance)
-      await registerGameAccountRoutes(instance, {
-        gameAccountRepository,
-        gameRepository,
-        puzzleRepository,
-        gameSources,
-        jobQueue,
-      })
-      await registerGameRoutes(instance, { gameRepository })
-      await registerPuzzleRoutes(instance, { puzzleRepository })
     },
   })
 
   await jobQueue.start({ worker: config.workerEnabled })
   await app.listen({ port: config.port, host: config.host })
   getLogger().info(`tactica-core listening on http://${config.host}:${config.port}`)
+
+  // Stop accepting requests, then let in-flight jobs finish (bounded) so a restart doesn't leave a
+  // game stuck `analyzing` until pg-boss's expiry notices.
+  let stopping = false
+  const shutdown = async (signal: string): Promise<void> => {
+    if (stopping) return
+    stopping = true
+    getLogger().info('Shutting down tactica-core', { signal })
+    await app.close()
+    await jobQueue.stop()
+    process.exit(0)
+  }
+  for (const signal of ['SIGTERM', 'SIGINT'] as const) {
+    process.once(signal, () => void shutdown(signal))
+  }
 }
 
 start().catch((error: unknown) => {

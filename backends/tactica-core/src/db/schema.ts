@@ -1,5 +1,5 @@
 import { standardFields } from '@tactica/drizzle-utils'
-import { type EngineLine, type Evaluation } from '@tactica/tactica-core-contract'
+import { type EngineLine, type Evaluation, type MoveEval } from '@tactica/tactica-core-contract'
 import {
   boolean,
   doublePrecision,
@@ -70,7 +70,7 @@ export const gameTable = pgTable(
      * White-relative evaluation of every position the game passed through, indexed by ply. Written
      * by analysis; kept for a future eval graph and so re-deriving it never needs the engine again.
      */
-    moveEvals: jsonb('moveEvals').$type<Evaluation[]>(),
+    moveEvals: jsonb('moveEvals').$type<MoveEval[]>(),
   },
   (table) => [
     index('Game_userId_idx').on(table.userId),
@@ -119,8 +119,6 @@ export const puzzleTable = pgTable(
     severity: puzzleSeverityEnum('severity').notNull(),
   },
   (table) => [
-    index('Puzzle_userId_idx').on(table.userId),
-    index('Puzzle_gameId_idx').on(table.gameId),
     // Re-analysing a game must not duplicate its puzzles — inserts use onConflictDoNothing on this
     uniqueIndex('Puzzle_gameId_ply_key').on(table.gameId, table.ply),
     // The default list ordering (newest mistakes first)

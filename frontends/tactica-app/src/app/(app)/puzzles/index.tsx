@@ -11,10 +11,23 @@ const SEVERITY_LABEL: Record<Puzzle['severity'], string> = {
   inaccuracy: 'Inaccuracy',
 }
 
+const SolvedBadge: React.FC<{ puzzle: Puzzle }> = ({ puzzle }) =>
+  puzzle.solvedFirstTry ? (
+    <Text testID={`puzzleSolvedBadge-${puzzle.id}`} style={styles.solvedBadge}>
+      ✓ Solved
+    </Text>
+  ) : puzzle.solved ? (
+    // A miss reveals the answer, so getting it afterwards is worth less — and worth revisiting
+    <Text testID={`puzzleSolvedAfterRetryBadge-${puzzle.id}`} style={styles.retryBadge}>
+      Solved on retry
+    </Text>
+  ) : (
+    <Text style={styles.unsolvedBadge}>Unsolved</Text>
+  )
+
 const PuzzleRow: React.FC<{ puzzle: Puzzle }> = ({ puzzle }) => (
   <Link href={`/puzzles/${puzzle.id}`} asChild>
-    {/* Keyed by opponent as well as id: e2e needs to pick a *specific* puzzle, and ids are random */}
-    <Pressable testID={`puzzleRow-${puzzle.opponentUsername}`} style={styles.row}>
+    <Pressable testID={`puzzleRow-${puzzle.id}`} style={styles.row}>
       <View style={styles.rowMain}>
         <Text style={styles.rowTitle}>
           {SEVERITY_LABEL[puzzle.severity]} vs {puzzle.opponentUsername}
@@ -24,13 +37,7 @@ const PuzzleRow: React.FC<{ puzzle: Puzzle }> = ({ puzzle }) => (
           {new Date(puzzle.playedAt).toLocaleDateString()}
         </Text>
       </View>
-      {puzzle.solved ? (
-        <Text testID={`puzzleSolvedBadge-${puzzle.id}`} style={styles.solvedBadge}>
-          ✓ Solved
-        </Text>
-      ) : (
-        <Text style={styles.unsolvedBadge}>Unsolved</Text>
-      )}
+      <SolvedBadge puzzle={puzzle} />
     </Pressable>
   </Link>
 )
@@ -40,6 +47,7 @@ const PuzzlesScreen: React.FC = () => {
   // Analysis fills this list in over time, so keep polling while games are still queued
   const analysisInProgress = (accounts.data ?? []).some((account) => account.stats.gamesPendingAnalysis > 0)
   const puzzles = usePuzzles({ analysisInProgress })
+  const rows = puzzles.data?.pages.flatMap((page) => page.data) ?? []
 
   return (
     <View style={styles.container} testID="puzzlesScreen">
@@ -47,7 +55,7 @@ const PuzzlesScreen: React.FC = () => {
         <ActivityIndicator />
       ) : puzzles.error ? (
         <Text style={styles.error}>{puzzles.error.message}</Text>
-      ) : (puzzles.data?.data.length ?? 0) === 0 ? (
+      ) : rows.length === 0 ? (
         <View style={styles.empty} testID="puzzlesEmptyState">
           <Text style={styles.emptyTitle}>No puzzles yet</Text>
           <Text style={styles.emptySub}>
@@ -58,10 +66,16 @@ const PuzzlesScreen: React.FC = () => {
         </View>
       ) : (
         <FlatList
-          data={puzzles.data?.data ?? []}
+          data={rows}
           keyExtractor={(puzzle) => puzzle.id}
           renderItem={({ item }) => <PuzzleRow puzzle={item} />}
           contentContainerStyle={styles.list}
+          // Pages in more as the end comes into view
+          onEndReached={() => {
+            if (puzzles.hasNextPage && !puzzles.isFetchingNextPage) void puzzles.fetchNextPage()
+          }}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={puzzles.isFetchingNextPage ? <ActivityIndicator style={styles.footer} /> : null}
         />
       )}
     </View>
@@ -85,6 +99,8 @@ const styles = StyleSheet.create({
   rowTitle: { fontSize: 16, fontWeight: '600' },
   rowSub: { fontSize: 13, color: '#6E675D' },
   solvedBadge: { color: '#1a7f37', fontWeight: '600' },
+  retryBadge: { color: '#9a6700', fontWeight: '600' },
+  footer: { paddingVertical: 12 },
   unsolvedBadge: { color: '#6E675D' },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, padding: 24 },
   emptyTitle: { fontSize: 18, fontWeight: '700' },

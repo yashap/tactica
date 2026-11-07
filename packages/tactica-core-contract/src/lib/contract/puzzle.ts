@@ -22,6 +22,12 @@ export const EvaluationSchema = z.object({
 })
 export type Evaluation = z.infer<typeof EvaluationSchema>
 
+/** A white-relative evaluation of the position *before* the given ply — one point on an eval graph. */
+export const MoveEvalSchema = EvaluationSchema.extend({
+  ply: z.number().int().nonnegative(),
+})
+export type MoveEval = z.infer<typeof MoveEvalSchema>
+
 export const EngineLineSchema = z.object({
   multipv: z.number().int().positive(),
   depth: z.number().int().nonnegative(),
@@ -59,8 +65,13 @@ export const PuzzleSchema = z.object({
   winProbBefore: z.number(),
   winProbAfter: z.number(),
   severity: PuzzleSeveritySchema,
-  /** True once the user has played an accepted move at least once. */
+  /** True once the user has played an accepted move at least once — including after a retry. */
   solved: z.boolean(),
+  /**
+   * True when the user's *first* attempt was an accepted move. A failed attempt reveals the answer,
+   * so solving it afterwards says much less; the app badges the two differently.
+   */
+  solvedFirstTry: z.boolean(),
   /** Context for the puzzle screen, denormalized from the game so the list needs one query. */
   opponentUsername: z.string(),
   playedAt: z.string().datetime(),
