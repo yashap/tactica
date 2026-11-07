@@ -28,6 +28,21 @@ direct route from a compromised package to code execution on your machine or in 
 currently is (one entry: `esbuild`). If you add a dependency that needs one, pnpm skips it silently; run
 `pnpm approve-builds` to review and allow it explicitly.
 
+## Versions deliberately held below latest
+
+Everything else tracks the latest release. These don't, and `pnpm outdated -r` will keep listing them:
+
+| Dependency                                                                                                        | Held at                                 | Why                                                                                                                                                                    |
+| ----------------------------------------------------------------------------------------------------------------- | --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `typescript`                                                                                                      | 6.0.x                                   | TypeScript 7 (the native port) has no stable JS API yet, and `typescript-eslint` supports `<6.1.0`. Move when typescript-eslint does.                                  |
+| `zod`                                                                                                             | 3.x                                     | `@ts-rest/*` 3.52 (latest stable) requires zod 3; zod 4 breaks its handler typing. ts-rest has had no stable release since mid-2025, so moving off it is the real fix. |
+| Expo-managed native deps (`react`, `react-dom`, `react-native-*`, `@react-native-async-storage/async-storage`, …) | whatever `npx expo install --fix` picks | Each Expo SDK pins the versions its native runtime (and Expo Go) was built against. Upgrade them by upgrading the SDK, never individually.                             |
+| `@babel/core`, `@babel/runtime`                                                                                   | 7.x                                     | `babel-preset-expo` is still on Babel 7.                                                                                                                               |
+| Postgres image (`postgis/postgis:15-3.3`)                                                                         | 15                                      | A major Postgres upgrade needs the dev/test data volumes migrated (dump/restore or `pg_upgrade`); a separate job.                                                      |
+| SuperTokens core image                                                                                            | 11.4.x                                  | 12.x reworks the auth schema and needs manual migrations on existing databases. 11.4 already speaks CDI 5.4, which `supertokens-node` 24 needs.                        |
+
+Also: `@ts-rest/fastify` declares `fastify: ^4`; `pnpm-workspace.yaml` allows Fastify 5 for it (see the comment there).
+
 ## The no-compile workspace deps story
 
 Internal workspace packages use a conditional `exports` map. The `"development"` condition points at TS source;

@@ -2,9 +2,9 @@
   "name": "tactica",
   "version": "0.0.1",
   "private": true,
-  "packageManager": "pnpm@11.20.0",
+  "packageManager": "pnpm@12.18.0",
   "engines": {
-    "node": ">=22.0.0"
+    "node": ">=26.0.0"
   },
   "scripts": {
     "build": "turbo run build",
@@ -30,8 +30,8 @@
     "test:force": "turbo run test --force"
   },
   "devDependencies": {
-    "prettier": "^3.6.2",
-    "turbo": "^2.5.6",
-    "typescript": "^5.9.2"
+    "prettier": "^3.9.10",
+    "turbo": "^2.11.10",
+    "typescript": "^6.0.3"
   }
 }

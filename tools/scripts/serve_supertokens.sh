@@ -24,7 +24,7 @@ docker run --name "$container_name" \
   -e POSTGRESQL_DATABASE_NAME="supertokens" \
   -e LOG_LEVEL="${LOG_LEVEL:-WARN}" \
   -p 3567:3567 \
-  registry.supertokens.io/supertokens/supertokens-postgresql:11.0.4 &
+  registry.supertokens.io/supertokens/supertokens-postgresql:11.4.8 &
 
 # Wait on the backgrounded container so an incoming signal interrupts the wait,
 # runs the trap (force-killing the container), and lets this script exit fast.

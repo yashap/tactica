@@ -1,6 +1,7 @@
-import type { FastifyInstance } from 'fastify'
+import cors from '@fastify/cors'
+import Fastify, { type FastifyInstance } from 'fastify'
 import { afterEach, describe, expect, it } from 'vitest'
-import { FastifyAppBuilder } from './FastifyAppBuilder.js'
+import { buildCorsOptions, FastifyAppBuilder } from './FastifyAppBuilder.js'
 
 /**
  * Covers the `internal` kind only. `userFacing` can't be built in-process without calling
@@ -83,5 +84,30 @@ describe('FastifyAppBuilder — internal', () => {
     const response = await app.inject({ method: 'GET', url: '/boom' })
     expect(response.statusCode).toBe(404)
     expect(response.json()).toEqual({ message: 'nope', code: 'NotFoundError' })
+  })
+})
+
+/** The `userFacing` CORS config, on a bare app — the browser's preflight is what actually gates its calls. */
+describe('buildCorsOptions', () => {
+  const websiteDomain = 'http://localhost:8081'
+
+  it.each(['GET', 'POST', 'DELETE'])('lets the app send a cross-origin %s', async (method) => {
+    const app = Fastify()
+    await app.register(cors, buildCorsOptions(websiteDomain, ['st-auth-mode']))
+    const response = await app.inject({
+      method: 'OPTIONS',
+      url: '/tactica-core/game-accounts/some-id',
+      headers: {
+        origin: websiteDomain,
+        'access-control-request-method': method,
+        'access-control-request-headers': 'content-type, st-auth-mode',
+      },
+    })
+    await app.close()
+    expect(response.statusCode).toBe(204)
+    expect(response.headers['access-control-allow-origin']).toBe(websiteDomain)
+    expect(String(response.headers['access-control-allow-methods']).split(/,\s*/)).toContain(method)
+    expect(response.headers['access-control-allow-headers']).toBe('content-type, st-auth-mode')
+    expect(response.headers['access-control-allow-credentials']).toBe('true')
   })
 })

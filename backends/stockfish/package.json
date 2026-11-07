@@ -7,7 +7,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json && pnpm bundle",
     "//bundle": "One self-contained CJS file is what ships in the container — see the Dockerfile for why CJS and why --keep-names.",
-    "bundle": "esbuild src/main.ts --bundle --platform=node --target=node22 --format=cjs --keep-names --conditions=development --outfile=dist/server.cjs",
+    "bundle": "esbuild src/main.ts --bundle --platform=node --target=node26 --format=cjs --keep-names --conditions=development --outfile=dist/server.cjs",
     "clean": "rm -rf dist .turbo .tsbuildinfo",
     "format": "eslint \"src/**/*.ts\" --fix",
     "lint": "tsc --noEmit && eslint \"src/**/*.ts\"",
@@ -20,11 +20,11 @@
   "devDependencies": {
     "@tactica/eslint-config": "workspace:*",
     "@tactica/tsconfig": "workspace:*",
-    "@types/node": "^22.10.0",
-    "esbuild": "^0.28.1",
-    "eslint": "^9.34.0",
-    "typescript": "^5.9.2",
-    "vitest": "^2.1.8"
+    "@types/node": "^26.6.6",
+    "esbuild": "^0.28.2",
+    "eslint": "^10.14.0",
+    "typescript": "^6.0.3",
+    "vitest": "^5.1.0"
   },
   "dependencies": {
     "@tactica/errors": "workspace:*",
@@ -33,6 +33,6 @@
     "@tactica/stockfish-contract": "workspace:*",
     "@ts-rest/core": "^3.52.1",
     "@ts-rest/fastify": "^3.52.1",
-    "fastify": "^4.29.1"
+    "fastify": "^5.12.8"
   }
 }

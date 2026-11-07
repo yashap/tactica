@@ -52,8 +52,18 @@ describe('PuzzleRepository (integration)', () => {
     return { userId, puzzleIds: puzzles.map((puzzle) => puzzle.id) }
   }
 
+  // Attempts are ordered by `createdAt`, which has millisecond precision, so back-to-back inserts
+  // can tie (then fall back to random UUID order). Give each one its own millisecond, as real
+  // attempts — seconds apart — always have.
+  let clock = Date.now()
   const attempt = (userId: string, puzzleId: string, correct: boolean) =>
-    repo.createAttempt({ userId, puzzleId, moveUci: correct ? 'f1c4' : 'h5f7', correct })
+    repo.createAttempt({
+      userId,
+      puzzleId,
+      moveUci: correct ? 'f1c4' : 'h5f7',
+      correct,
+      createdAt: new Date((clock += 1000)),
+    })
 
   beforeEach(async () => {
     await db.delete(gameAccountTable) // cascades to Game → Puzzle → PuzzleAttempt

@@ -12,7 +12,7 @@ import React from 'react'
  * A deep link straight to `/puzzles/<id>` would otherwise open the puzzle with nothing underneath it,
  * so there'd be no list to go back to. This makes the list the stack's base screen regardless.
  */
-export const unstable_settings = { initialRouteName: 'index' }
+export const unstable_settings = { anchor: 'index' }
 
 const PuzzlesLayout: React.FC = () => <Stack screenOptions={{ headerShown: false }} />
 

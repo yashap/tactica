@@ -26,15 +26,15 @@
   },
   "dependencies": {
     "@tactica/errors": "workspace:*",
-    "js-base64": "^3.7.7",
-    "zod": "^3.24.1"
+    "js-base64": "^3.9.6",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@tactica/eslint-config": "workspace:*",
     "@tactica/tsconfig": "workspace:*",
-    "@types/node": "^22.10.0",
-    "eslint": "^9.34.0",
-    "typescript": "^5.9.2",
-    "vitest": "^2.1.8"
+    "@types/node": "^26.6.6",
+    "eslint": "^10.14.0",
+    "typescript": "^6.0.3",
+    "vitest": "^5.1.0"
   }
 }

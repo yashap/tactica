@@ -18,7 +18,7 @@
 #   --keep-names    ServerError derives its `code` from `this.constructor.name`. Without this the
 #                   bundler renames classes and every error DTO comes back as `_NotFoundError`,
 #                   which `buildServerErrorFromDto` on the client side then fails to match.
-FROM node:22-bookworm-slim
+FROM node:26-trixie-slim
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends stockfish \

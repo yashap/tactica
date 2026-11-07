@@ -75,7 +75,7 @@ const PuzzlesScreen: React.FC = () => {
             if (puzzles.hasNextPage && !puzzles.isFetchingNextPage) void puzzles.fetchNextPage()
           }}
           onEndReachedThreshold={0.5}
-          ListFooterComponent={puzzles.isFetchingNextPage ? <ActivityIndicator style={styles.footer} /> : null}
+          ListFooterComponent={puzzles.isFetchingNextPage ? <ActivityIndicator style={styles.footer} /> : undefined}
         />
       )}
     </View>
