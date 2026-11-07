@@ -6,7 +6,7 @@
 | ---------------------------------------------------------- | -------------- |
 | M1 — Link chess.com account + raw game import              | ✅ Implemented |
 | M2 — stockfish service (Dockerized engine API)             | ✅ Implemented |
-| M3 — tactica-analysis service (blunder detection pipeline) | Not started    |
+| M3 — tactica-analysis service (blunder detection pipeline) | ✅ Implemented |
 | M4 — Pipeline integration → puzzles appear                 | Not started    |
 | M5 — Puzzle-solving UI                                     | Not started    |
 | M6 — tactica-coach service + explanations UI               | Not started    |
@@ -149,6 +149,18 @@ tactica-core :3501 ────ts-rest────▶ tactica-analysis :3502 ─
 
 - Scaffold `backends/tactica-analysis` (port 3502, tactica-core structure: `FastifyAppBuilder`, `config.ts`, Drizzle + own migrations, logical DB `tactica_analysis` dev+test); `packages/tactica-analysis-contract`/`-client`; internal-key preHandler; `Analysis` table; pg-boss `run-analysis` worker; stockfish HTTP client (`STOCKFISH_URL`); `blunderDetection.ts` as **pure functions** (win-prob, thresholds, severity, side-to-move perspective normalization); two-pass analysis; async submit/status API; root scripts + turbo wiring (`serve:backend`, `db:migrate-up[:test]`).
 - **Verify**: unit tests for win-prob math + eval-perspective normalization (hand-computed cases, zero engine); worker tests with a faked stockfish client; integration test against the real container — fixture game with an egregious hanging-queen blunder (robust at any depth) → correct `fen`/`bestMoveUci`/severity; manual curl round-trip locally.
+- **Implementation notes (as built, August 2026)**:
+  - **Everything is white-relative once it leaves the engine boundary.** `toWhiteRelative` is applied exactly once, in `evaluatePosition`, and every eval in the contract (`moveEvals`, `evalBefore`, `evalAfter`) is documented as white-relative. Consumers never have to know whose turn it was. The one place scores stay side-to-move-relative is the deep pass's `engineLines`, where the player is to move anyway so the two frames coincide.
+  - **A checkmated position is reported as `mate: ∓1`, never `mate: 0`.** Zero has no sign, so it would survive negation unchanged and silently break perspective flipping — the exact class of bug risk #1 warns about. Pinned by a test asserting the terminal eval is non-zero and negates properly.
+  - **Terminal positions are scored locally, not sent to the engine.** Stockfish returns no lines at all for a mated/stalemated position (as M2's smoke test showed), so asking would burn a round trip and hand back nothing to score.
+  - **Positions come from chess.js's `move.before` / `move.after`**, not by replaying the PGN by hand — every position the game passed through, with no chance of drift between the FEN we evaluate and the FEN we store on the puzzle.
+  - **Only `mistake` and `blunder` graduate to puzzles**; inaccuracies are detected and scored but filtered by `isPuzzleWorthy`, because a 0.1 win-probability dip makes a poor "find the best move".
+  - **Env vars are service-prefixed** (`ANALYSIS_PORT`, `ANALYSIS_DATABASE_URL`) rather than reusing `PORT`/`DATABASE_URL`. Turbo hands every task the same environment, so shared names would silently point this service at tactica-core's database. Same reasoning applies to M6's coach.
+  - **The `Analysis` table has no `userId`** — this service analyses a PGN handed to it and knows nothing about accounts. tactica-core owns user data and does the authorization before it ever calls here. Ids are unguessable UUIDs behind the internal-key gate.
+  - `buildRequireInternalApiKey` lives in **fastify-utils** (M6 reuses it) and is registered as a `preHandler` scoped to `/tactica-analysis/*`, leaving `GET /health` open for container healthchecks and the CI readiness wait.
+  - The job **records the failure on the row and rethrows**, so the polling caller sees `failed` while pg-boss still retries; re-running is safe because analysis is a pure function of the PGN. An already-`succeeded` analysis short-circuits, so a duplicate delivery is cheap.
+  - **Two engine-backed tests** (`analyzeGame.engine.spec.ts`) run against a real container and are `describe.skipIf`'d when `:3503/health` is unreachable, keeping `pnpm test` hermetic. They caught nothing that the fakes missed, but they're the only thing that would catch our UCI/FEN/perspective plumbing disagreeing with the actual engine. Verified locally: `Qxf7+` flagged as a blunder, best move `Bc4`, win probability 0.485 → 0.098.
+  - Timestamp wrinkle worth knowing: `createdAt` defaults to Postgres's `now()` while repository updates set `updatedAt` from the Node process clock, and in Docker those drift by a few milliseconds — so `updatedAt >= createdAt` is not reliably true. Tests compare two updates against each other instead. (Pre-existing pattern, shared with tactica-core.)
 
 ### M4 — Pipeline integration → puzzles appear (tactica-core)
 

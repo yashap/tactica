@@ -1,0 +1,4 @@
+{
+  "extends": "@tactica/tsconfig/node-app.json",
+  "include": ["src/**/*"]
+}

@@ -5,7 +5,7 @@
     "serve": {
       "cache": false,
       "persistent": true,
-      "with": ["@tactica/supertokens#serve", "@tactica/stockfish#serve"]
+      "with": ["@tactica/supertokens#serve", "@tactica/stockfish#serve", "@tactica/tactica-analysis#serve"]
     }
   }
 }
