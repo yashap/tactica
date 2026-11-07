@@ -12,9 +12,13 @@ import { StockfishClient } from './StockfishClient.js'
  * Skipped unless a stockfish service is reachable, so `pnpm test` stays hermetic. To run it:
  *   pnpm serve:backend            # or: docker run -p 3503:3503 tactica-stockfish:local
  *   pnpm --filter @tactica/tactica-analysis test
+ *
+ * CI's `stockfish-smoke` job sets `REQUIRE_ENGINE=true`, which turns "engine unreachable" into a
+ * failure instead of a skip — otherwise a broken CI setup would silently stop running this.
  */
 
 const STOCKFISH_URL = process.env['STOCKFISH_URL'] ?? 'http://localhost:3503'
+const REQUIRE_ENGINE = process.env['REQUIRE_ENGINE'] === 'true'
 
 const stockfishReachable = async (): Promise<boolean> => {
   try {
@@ -26,6 +30,9 @@ const stockfishReachable = async (): Promise<boolean> => {
 }
 
 const reachable = await stockfishReachable()
+if (!reachable && REQUIRE_ENGINE) {
+  throw new Error(`REQUIRE_ENGINE is set but no stockfish service answered at ${STOCKFISH_URL}/health`)
+}
 
 describe.skipIf(!reachable)('analyzeGame against a real engine', () => {
   it('catches a queen hung for nothing', async () => {

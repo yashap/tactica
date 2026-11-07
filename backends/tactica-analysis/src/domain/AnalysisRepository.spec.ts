@@ -7,6 +7,7 @@ const PGN = '1. e4 e5 2. Nf3 Nc6 1/2-1/2'
 
 describe('AnalysisRepository (integration)', () => {
   const repo = new AnalysisRepository(db)
+  const create = async (row: Parameters<AnalysisRepository['createOrGet']>[0]) => (await repo.createOrGet(row)).analysis
 
   beforeEach(async () => {
     await db.delete(analysisTable)
@@ -17,7 +18,7 @@ describe('AnalysisRepository (integration)', () => {
   })
 
   it('creates an analysis queued, with no result yet', async () => {
-    const created = await repo.create({ pgn: PGN, playerColor: 'white' })
+    const created = await create({ pgn: PGN, playerColor: 'white' })
     expect(created.status).toBe('queued')
     expect(created.result).toBeNull()
     expect(created.error).toBeNull()
@@ -30,7 +31,7 @@ describe('AnalysisRepository (integration)', () => {
   })
 
   it('round-trips settings and the full result payload through jsonb', async () => {
-    const created = await repo.create({
+    const created = await create({
       pgn: PGN,
       playerColor: 'black',
       settings: { scanMovetimeMs: 10, deepMovetimeMs: 20, multiPv: 2 },
@@ -66,7 +67,7 @@ describe('AnalysisRepository (integration)', () => {
   })
 
   it('records a failure, and clears it if a later attempt succeeds', async () => {
-    const created = await repo.create({ pgn: PGN, playerColor: 'white' })
+    const created = await create({ pgn: PGN, playerColor: 'white' })
 
     await repo.markRunning(created.id)
     expect((await repo.findById(created.id))?.status).toBe('running')
@@ -84,7 +85,7 @@ describe('AnalysisRepository (integration)', () => {
   })
 
   it('bumps updatedAt on every status change', async () => {
-    const created = await repo.create({ pgn: PGN, playerColor: 'white' })
+    const created = await create({ pgn: PGN, playerColor: 'white' })
 
     await repo.markRunning(created.id)
     const afterRunning = (await repo.findById(created.id))!.updatedAt
@@ -96,5 +97,44 @@ describe('AnalysisRepository (integration)', () => {
     // timestamp from Postgres's clock and updates from this process's, and in Docker those drift by
     // a few milliseconds — enough to make a naive created-vs-updated comparison flap.
     expect(afterFailed.valueOf()).toBeGreaterThanOrEqual(afterRunning.valueOf())
+  })
+
+  it('returns the existing analysis for a repeated idempotency key instead of inserting', async () => {
+    const first = await repo.createOrGet({ pgn: PGN, playerColor: 'white', idempotencyKey: 'game-1' })
+    const second = await repo.createOrGet({ pgn: PGN, playerColor: 'white', idempotencyKey: 'game-1' })
+    expect(first.created).toBe(true)
+    expect(second.created).toBe(false)
+    expect(second.analysis.id).toBe(first.analysis.id)
+    expect(await db.select().from(analysisTable)).toHaveLength(1)
+  })
+
+  it('keeps analyses with different, or no, idempotency keys separate', async () => {
+    await repo.createOrGet({ pgn: PGN, playerColor: 'white', idempotencyKey: 'game-1' })
+    await repo.createOrGet({ pgn: PGN, playerColor: 'white', idempotencyKey: 'game-2' })
+    // NULLs never collide in a unique index, so keyless submissions stay independent
+    await repo.createOrGet({ pgn: PGN, playerColor: 'white' })
+    await repo.createOrGet({ pgn: PGN, playerColor: 'white' })
+    expect(await db.select().from(analysisTable)).toHaveLength(4)
+  })
+
+  it('marks a retry pending as queued, not failed, keeping the error', async () => {
+    const created = await create({ pgn: PGN, playerColor: 'white' })
+    await repo.markRunning(created.id)
+    await repo.markRetryPending(created.id, 'engine unreachable')
+    const stored = await repo.findById(created.id)
+    expect(stored?.status).toBe('queued')
+    expect(stored?.error).toBe('engine unreachable')
+
+    // ...and the next attempt starting clears it again
+    await repo.markRunning(created.id)
+    expect((await repo.findById(created.id))?.error).toBeNull()
+  })
+
+  it('requeues a finally-failed analysis with a clean slate', async () => {
+    const created = await create({ pgn: PGN, playerColor: 'white' })
+    await repo.markFailed(created.id, 'gave up')
+    const requeued = await repo.requeue(created.id)
+    expect(requeued?.status).toBe('queued')
+    expect(requeued?.error).toBeNull()
   })
 })

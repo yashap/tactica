@@ -24,6 +24,11 @@ interface FakeEngineScript {
   scanCp: Record<number, number>
   /** Lines to answer the deep (multi-PV) pass with, per position index. */
   deepLines?: Record<number, EvaluateResult['lines']>
+  /**
+   * What a deep single-line search says, per position index — the deep pass's look at the position
+   * after a flagged move. Falls back to `scanCp`, i.e. a deeper search that agrees with the scan.
+   */
+  deepCp?: Record<number, number>
 }
 
 class FakeEngine implements StockfishEvaluator {
@@ -44,7 +49,8 @@ class FakeEngine implements StockfishEvaluator {
       if (!lines) throw new Error(`No deep lines scripted for position ${index}`)
       return Promise.resolve({ bestMoveUci: lines[0]?.pvUci[0] ?? null, lines })
     }
-    const cp = this.script.scanCp[index] ?? 0
+    const isDeep = request.movetimeMs === SETTINGS.deepMovetimeMs
+    const cp = (isDeep ? this.script.deepCp?.[index] : undefined) ?? this.script.scanCp[index] ?? 0
     return Promise.resolve({
       bestMoveUci: null,
       lines: [{ multipv: 1, depth: 12, pvUci: [], cp }],
@@ -115,6 +121,60 @@ describe('analyzeGame', () => {
     expect(blunder.winProbAfter).toBeCloseTo(winProbFromCp(-300), 10)
     expect(blunder.evalBefore).toEqual({ cp: 300 })
     expect(blunder.evalAfter).toEqual({ cp: -300 })
+  })
+
+  it('drops a flagged move that the deep pass thinks was one of the best', async () => {
+    // The scan says Nf3 lost 600cp; the deeper search ranks Nf3 level with its top choice. A puzzle
+    // whose answer is the move you actually played would mark you wrong for playing it.
+    const { pgn, positions } = buildGame(['e4', 'e5', 'Nf3', 'Nc6'])
+    const engine = new FakeEngine(positions, {
+      scanCp: { 0: 20, 1: -20, 2: 300, 3: 300, 4: -300 },
+      deepLines: {
+        2: [
+          { multipv: 1, depth: 20, pvUci: ['d2d4'], cp: 40 },
+          { multipv: 2, depth: 20, pvUci: ['g1f3'], cp: 35 },
+        ],
+      },
+    })
+
+    const { blunders } = await analyzeGame({ engine }, { pgn, playerColor: 'white', ...SETTINGS })
+
+    expect(blunders).toEqual([])
+  })
+
+  it('drops a flagged move whose loss shrinks below the threshold at depth', async () => {
+    const { pgn, positions } = buildGame(['e4', 'e5', 'Nf3', 'Nc6'])
+    const engine = new FakeEngine(positions, {
+      scanCp: { 0: 20, 1: -20, 2: 300, 3: 300, 4: -300 },
+      deepLines: { 2: [{ multipv: 1, depth: 20, pvUci: ['d2d4'], cp: 60 }] },
+      // Looked at properly, the position after Nf3 is only slightly worse (+40 for white)
+      deepCp: { 3: -40 },
+    })
+
+    const { blunders } = await analyzeGame({ engine }, { pgn, playerColor: 'white', ...SETTINGS })
+
+    expect(blunders).toEqual([])
+  })
+
+  it('takes every number on the puzzle from the deep pass, consistent with its engine lines', async () => {
+    const { pgn, positions } = buildGame(['e4', 'e5', 'Nf3', 'Nc6'])
+    const engine = new FakeEngine(positions, {
+      scanCp: { 0: 20, 1: -20, 2: 300, 3: 300, 4: -300 },
+      // The deeper search disagrees on the magnitudes, though it still calls Nf3 a blunder
+      deepLines: { 2: [{ multipv: 1, depth: 20, pvUci: ['d2d4'], cp: 150 }] },
+      deepCp: { 3: 400 },
+    })
+
+    const { blunders, moveEvals } = await analyzeGame({ engine }, { pgn, playerColor: 'white', ...SETTINGS })
+
+    const blunder = blunders[0]!
+    expect(blunder.evalBefore).toEqual({ cp: 150 })
+    expect(blunder.evalAfter).toEqual({ cp: -400 })
+    expect(blunder.winProbBefore).toBeCloseTo(winProbFromCp(150), 10)
+    expect(blunder.winProbAfter).toBeCloseTo(winProbFromCp(-400), 10)
+    // ...and the eval graph shows the same numbers where it looked harder
+    expect(moveEvals[2]).toEqual({ ply: 2, cp: 150 })
+    expect(moveEvals[3]).toEqual({ ply: 3, cp: -400 })
   })
 
   it('accepts alternatives that are near-equal to the best move, but not clearly worse ones', async () => {
@@ -212,11 +272,14 @@ describe('analyzeGame', () => {
 
     await analyzeGame({ engine }, { pgn, playerColor: 'white', scanMovetimeMs: 11, deepMovetimeMs: 222, multiPv: 3 })
 
-    const scans = engine.requests.filter((request) => request.multiPv === 1)
-    const deep = engine.requests.filter((request) => request.multiPv > 1)
-    expect(scans.every((request) => request.movetimeMs === 11)).toBe(true)
-    expect(deep).toHaveLength(1)
-    expect(deep[0]!.movetimeMs).toBe(222)
-    expect(deep[0]!.multiPv).toBe(3)
+    // Pass 1: one quick single-line look at every position
+    const scans = engine.requests.filter((request) => request.movetimeMs === 11)
+    expect(scans).toHaveLength(positions.length)
+    expect(scans.every((request) => request.multiPv === 1)).toBe(true)
+    // Pass 2, for the one flagged move: a multi-line search of the position before it, plus a
+    // single-line look at the position after it so both sides of the move are judged at depth
+    const deep = engine.requests.filter((request) => request.movetimeMs === 222)
+    expect(deep.map((request) => request.multiPv)).toEqual([3, 1])
+    expect(engine.requests).toHaveLength(scans.length + deep.length)
   })
 })

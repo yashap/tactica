@@ -1,12 +1,11 @@
-import { buildRequireInternalApiKey, FastifyAppBuilder } from '@tactica/fastify-utils'
 import { getLogger } from '@tactica/logging'
+import { buildApp } from './app.js'
 import { config } from './config.js'
 import { db } from './db/client.js'
 import { AnalysisRepository } from './domain/AnalysisRepository.js'
 import { StockfishClient } from './domain/StockfishClient.js'
 import { buildRunAnalysisJob } from './jobs/runAnalysisJob.js'
 import { JobQueue } from './jobs/jobQueue.js'
-import { registerAnalysisRoutes, registerHealthRoutes } from './registerAnalysisRoutes.js'
 
 const start = async (): Promise<void> => {
   const analysisRepository = new AnalysisRepository(db)
@@ -18,22 +17,8 @@ const start = async (): Promise<void> => {
       defaults: config.analysis,
     }),
   })
-  const requireInternalApiKey = buildRequireInternalApiKey(config.internalApiKey)
 
-  const app = await FastifyAppBuilder.build({
-    kind: 'internal',
-    registerRoutes: async (instance) => {
-      // Gate the service's own paths, leaving /health reachable for container healthchecks and the
-      // CI readiness wait.
-      instance.addHook('preHandler', async (request, reply) => {
-        if (request.url.startsWith('/tactica-analysis/')) {
-          await requireInternalApiKey(request, reply)
-        }
-      })
-      await registerHealthRoutes(instance)
-      await registerAnalysisRoutes(instance, { analysisRepository, jobQueue })
-    },
-  })
+  const app = await buildApp({ analysisRepository, jobQueue, internalApiKey: config.internalApiKey })
 
   await jobQueue.start({ worker: config.workerEnabled })
   await app.listen({ port: config.port, host: config.host })
@@ -41,6 +26,21 @@ const start = async (): Promise<void> => {
     stockfishUrl: config.stockfishUrl,
     workerEnabled: config.workerEnabled,
   })
+
+  // Stop accepting requests, then let in-flight jobs finish (bounded) so a restart doesn't strand
+  // an analysis mid-run until pg-boss's expiry notices.
+  let stopping = false
+  const shutdown = async (signal: string): Promise<void> => {
+    if (stopping) return
+    stopping = true
+    getLogger().info('Shutting down tactica-analysis', { signal })
+    await app.close()
+    await jobQueue.stop()
+    process.exit(0)
+  }
+  for (const signal of ['SIGTERM', 'SIGINT'] as const) {
+    process.once(signal, () => void shutdown(signal))
+  }
 }
 
 start().catch((error: unknown) => {

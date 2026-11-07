@@ -1,3 +1,4 @@
+import { CorrelationIdPropagator } from '@tactica/correlation-id-propagator'
 import { tacticaRequestValidationErrorHandler } from '@tactica/fastify-utils'
 import {
   type Analysis,
@@ -8,11 +9,17 @@ import { initServer } from '@ts-rest/fastify'
 import type { FastifyInstance } from 'fastify'
 import { type AnalysisRow } from './db/schema.js'
 import { type AnalysisRepository } from './domain/AnalysisRepository.js'
-import { type JobQueue } from './jobs/jobQueue.js'
+import { parsePgn } from './domain/analyzeGame.js'
+import { type RunAnalysisPayload } from './jobs/jobQueue.js'
+
+/** The slice of the job queue the routes use — narrow, so tests can supply a fake. */
+export interface RunAnalysisEnqueuer {
+  enqueueRunAnalysis(payload: RunAnalysisPayload): Promise<string | null>
+}
 
 export interface AnalysisRoutesDeps {
   analysisRepository: AnalysisRepository
-  jobQueue: JobQueue
+  jobQueue: RunAnalysisEnqueuer
 }
 
 const toDto = (row: AnalysisRow): Analysis => ({
@@ -28,15 +35,45 @@ const toDto = (row: AnalysisRow): Analysis => ({
 export const registerAnalysisRoutes = async (app: FastifyInstance, deps: AnalysisRoutesDeps): Promise<void> => {
   const s = initServer()
 
+  /**
+   * Queue a run for the row. If queuing fails, mark the row failed rather than leave it `queued`
+   * forever with no job behind it; the caller's retry (same idempotency key) re-queues it.
+   */
+  const enqueue = async (row: AnalysisRow): Promise<void> => {
+    try {
+      await deps.jobQueue.enqueueRunAnalysis({
+        analysisId: row.id,
+        ...withCorrelationId(CorrelationIdPropagator.getContext()),
+      })
+    } catch (error) {
+      await deps.analysisRepository.markFailed(row.id, `Could not queue analysis: ${(error as Error).message}`)
+      throw error
+    }
+  }
+
   const router = s.router(tacticaAnalysisContract, {
     create: async ({ body }) => {
-      const row = await deps.analysisRepository.create({
+      // Reject a game we can't replay now, rather than queue it to fail on the worker
+      parsePgn(body.pgn)
+
+      const { analysis, created } = await deps.analysisRepository.createOrGet({
         pgn: body.pgn,
         playerColor: body.playerColor,
         ...(body.settings === undefined ? {} : { settings: body.settings }),
+        ...(body.idempotencyKey === undefined ? {} : { idempotencyKey: body.idempotencyKey }),
       })
-      await deps.jobQueue.enqueueRunAnalysis({ analysisId: row.id })
-      return { status: 201, body: toDto(row) }
+      if (created) {
+        await enqueue(analysis)
+        return { status: 201, body: toDto(analysis) }
+      }
+      // A resubmission. Anything still in flight or done is returned as-is for the caller to keep
+      // polling; only a finally-failed analysis gets another go.
+      if (analysis.status === 'failed') {
+        const requeued = (await deps.analysisRepository.requeue(analysis.id)) ?? analysis
+        await enqueue(requeued)
+        return { status: 201, body: toDto(requeued) }
+      }
+      return { status: 201, body: toDto(analysis) }
     },
     get: async ({ params }) => {
       const row = await deps.analysisRepository.findById(params.id)
@@ -51,6 +88,9 @@ export const registerAnalysisRoutes = async (app: FastifyInstance, deps: Analysi
     requestValidationErrorHandler: tacticaRequestValidationErrorHandler,
   })
 }
+
+const withCorrelationId = (correlationId: string | undefined): { correlationId?: string } =>
+  correlationId === undefined ? {} : { correlationId }
 
 /** Registered outside the internal-key gate so healthchecks and CI readiness waits stay simple. */
 export const registerHealthRoutes = async (app: FastifyInstance): Promise<void> => {

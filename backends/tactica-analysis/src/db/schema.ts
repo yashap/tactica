@@ -1,6 +1,6 @@
 import { standardFields } from '@tactica/drizzle-utils'
 import { type AnalysisResult, type AnalysisSettings } from '@tactica/tactica-analysis-contract'
-import { index, jsonb, pgEnum, pgTable, text } from 'drizzle-orm/pg-core'
+import { index, jsonb, pgEnum, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core'
 
 export const analysisStatusEnum = pgEnum('AnalysisStatus', ['queued', 'running', 'succeeded', 'failed'])
 export const chessColorEnum = pgEnum('ChessColor', ['white', 'black'])
@@ -24,10 +24,15 @@ export const analysisTable = pgTable(
     settings: jsonb('settings').$type<AnalysisSettings>(),
     /** Populated once `status` is `succeeded`. */
     result: jsonb('result').$type<AnalysisResult>(),
-    /** Populated once `status` is `failed`. */
+    /** The latest failure: final when `status` is `failed`, else a retry is pending. */
     error: text('error'),
+    /** Caller-supplied key that makes submission idempotent (tactica-core sends its game id). */
+    idempotencyKey: text('idempotencyKey'),
   },
-  (table) => [index('Analysis_status_idx').on(table.status)],
+  (table) => [
+    index('Analysis_status_idx').on(table.status),
+    uniqueIndex('Analysis_idempotencyKey_key').on(table.idempotencyKey),
+  ],
 )
 
 export type AnalysisRow = typeof analysisTable.$inferSelect

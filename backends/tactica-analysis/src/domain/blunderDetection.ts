@@ -63,14 +63,19 @@ export const terminalEvaluation = (outcome: { isCheckmate: boolean }, sideToMove
 }
 
 /**
- * Win-probability drop thresholds, mirroring lichess's inaccuracy/mistake/blunder tiers. Thresholding
+ * Win-probability drop thresholds, matching lichess's inaccuracy/mistake/blunder tiers. Thresholding
  * the drop in win probability rather than raw centipawn loss is what stops a +9 → +6 swing in an
  * already-won position from being flagged as a catastrophe.
+ *
+ * Mind the scale: lichess's 0.3 / 0.2 / 0.1 apply to "winning chances" on **[-1, +1]**
+ * (`2 / (1 + e^(-k·cp)) - 1`, see lila's `Advice.scala`), which is twice our [0, 1] win probability.
+ * Halved, they're 0.15 / 0.10 / 0.05. Using lichess's numbers unscaled made every tier twice as
+ * forgiving — hanging a minor piece from equality was only a "mistake", and 0 → -200cp no puzzle.
  */
 export const WIN_PROB_DROP_THRESHOLDS: Record<BlunderSeverity, number> = {
-  blunder: 0.3,
-  mistake: 0.2,
-  inaccuracy: 0.1,
+  blunder: 0.15,
+  mistake: 0.1,
+  inaccuracy: 0.05,
 }
 
 /** `undefined` when the move wasn't bad enough to be worth mentioning. */

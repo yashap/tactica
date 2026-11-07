@@ -4,6 +4,7 @@ import { db, sql } from '../db/client.js'
 import { analysisTable } from '../db/schema.js'
 import { AnalysisRepository } from '../domain/AnalysisRepository.js'
 import { type EvaluateRequest, type EvaluateResult, type StockfishEvaluator } from '../domain/StockfishClient.js'
+import { type JobAttempt } from './jobQueue.js'
 import { buildRunAnalysisJob } from './runAnalysisJob.js'
 
 const buildPgn = (sanMoves: string[]): string => {
@@ -45,8 +46,17 @@ class ExplodingEngine implements StockfishEvaluator {
 
 const DEFAULTS = { scanMovetimeMs: 10, deepMovetimeMs: 20, multiPv: 3 }
 
+/** A first attempt with retries still to come — the common case. */
+const attempt = (overrides: Partial<JobAttempt> = {}): JobAttempt => ({
+  isFinalAttempt: false,
+  signal: new AbortController().signal,
+  ...overrides,
+})
+
 describe('runAnalysisJob (integration)', () => {
   const analysisRepository = new AnalysisRepository(db)
+  const create = async (row: Parameters<AnalysisRepository['createOrGet']>[0]) =>
+    (await analysisRepository.createOrGet(row)).analysis
 
   beforeEach(async () => {
     await db.delete(analysisTable)
@@ -57,10 +67,10 @@ describe('runAnalysisJob (integration)', () => {
   })
 
   it('analyses a queued game and stores the result', async () => {
-    const created = await analysisRepository.create({ pgn: buildPgn(['e4', 'e5']), playerColor: 'white' })
+    const created = await create({ pgn: buildPgn(['e4', 'e5']), playerColor: 'white' })
     const job = buildRunAnalysisJob({ analysisRepository, engine: new BlunderingEngine(), defaults: DEFAULTS })
 
-    await job({ analysisId: created.id })
+    await job({ analysisId: created.id }, attempt())
 
     const stored = await analysisRepository.findById(created.id)
     expect(stored?.status).toBe('succeeded')
@@ -70,7 +80,7 @@ describe('runAnalysisJob (integration)', () => {
   })
 
   it('honours per-analysis settings over the service defaults', async () => {
-    const created = await analysisRepository.create({
+    const created = await create({
       pgn: buildPgn(['e4', 'e5']),
       playerColor: 'white',
       settings: { scanMovetimeMs: 7 },
@@ -85,35 +95,85 @@ describe('runAnalysisJob (integration)', () => {
     }
     const job = buildRunAnalysisJob({ analysisRepository, engine: recording, defaults: DEFAULTS })
 
-    await job({ analysisId: created.id })
+    await job({ analysisId: created.id }, attempt())
 
-    expect(requests.filter((r) => r.multiPv === 1).every((r) => r.movetimeMs === 7)).toBe(true)
-    // The unset ones still come from config
+    // The scan uses the override; the deep pass (its multi-PV search, and the single-line look at the
+    // position after a flagged move) still comes from config
+    expect(requests.filter((r) => r.movetimeMs === 7)).toHaveLength(3)
     expect(requests.filter((r) => r.multiPv > 1).every((r) => r.movetimeMs === DEFAULTS.deepMovetimeMs)).toBe(true)
+    expect(requests.every((r) => r.movetimeMs === 7 || r.movetimeMs === DEFAULTS.deepMovetimeMs)).toBe(true)
   })
 
-  it('records the failure and rethrows, so pg-boss can retry', async () => {
-    const created = await analysisRepository.create({ pgn: buildPgn(['e4', 'e5']), playerColor: 'white' })
+  it('on a failure with retries left, goes back to queued with the error and rethrows', async () => {
+    const created = await create({ pgn: buildPgn(['e4', 'e5']), playerColor: 'white' })
     const job = buildRunAnalysisJob({ analysisRepository, engine: new ExplodingEngine(), defaults: DEFAULTS })
 
-    await expect(job({ analysisId: created.id })).rejects.toThrow(/engine unreachable/)
+    await expect(job({ analysisId: created.id }, attempt())).rejects.toThrow(/engine unreachable/)
+
+    // Not `failed`: that's final, and a poller seeing it would abandon work that's about to be retried
+    const stored = await analysisRepository.findById(created.id)
+    expect(stored?.status).toBe('queued')
+    expect(stored?.error).toContain('engine unreachable')
+  })
+
+  it('on the final attempt, records a final failure and still rethrows', async () => {
+    const created = await create({ pgn: buildPgn(['e4', 'e5']), playerColor: 'white' })
+    const job = buildRunAnalysisJob({ analysisRepository, engine: new ExplodingEngine(), defaults: DEFAULTS })
+
+    await expect(job({ analysisId: created.id }, attempt({ isFinalAttempt: true }))).rejects.toThrow()
 
     const stored = await analysisRepository.findById(created.id)
     expect(stored?.status).toBe('failed')
     expect(stored?.error).toContain('engine unreachable')
   })
 
+  it('fails an unreplayable PGN straight away without asking pg-boss to retry', async () => {
+    const created = await create({ pgn: '1. e4 e5 2. Ke3 Ke6 3. Qxh7', playerColor: 'white' })
+    const engine = new BlunderingEngine()
+    const job = buildRunAnalysisJob({ analysisRepository, engine, defaults: DEFAULTS })
+
+    await expect(job({ analysisId: created.id }, attempt())).resolves.toBeUndefined()
+
+    const stored = await analysisRepository.findById(created.id)
+    expect(stored?.status).toBe('failed')
+    expect(stored?.error).toContain('Could not parse PGN')
+    expect(engine.calls).toBe(0)
+  })
+
+  it("hands the attempt's abort signal to every engine call", async () => {
+    const created = await create({ pgn: buildPgn(['e4', 'e5']), playerColor: 'white' })
+    const engine = new BlunderingEngine()
+    const signals: (AbortSignal | undefined)[] = []
+    const recording: StockfishEvaluator = {
+      evaluate: (request, signal) => {
+        signals.push(signal)
+        return engine.evaluate(request)
+      },
+    }
+    const controller = new AbortController()
+
+    await buildRunAnalysisJob({ analysisRepository, engine: recording, defaults: DEFAULTS })(
+      { analysisId: created.id },
+      attempt({ signal: controller.signal }),
+    )
+
+    expect(signals.length).toBeGreaterThan(0)
+    expect(signals.every((signal) => signal === controller.signal)).toBe(true)
+  })
+
   it('recovers when a retry follows a failure', async () => {
-    const created = await analysisRepository.create({ pgn: buildPgn(['e4', 'e5']), playerColor: 'white' })
+    const created = await create({ pgn: buildPgn(['e4', 'e5']), playerColor: 'white' })
     await expect(
-      buildRunAnalysisJob({ analysisRepository, engine: new ExplodingEngine(), defaults: DEFAULTS })({
-        analysisId: created.id,
-      }),
+      buildRunAnalysisJob({ analysisRepository, engine: new ExplodingEngine(), defaults: DEFAULTS })(
+        { analysisId: created.id },
+        attempt(),
+      ),
     ).rejects.toThrow()
 
-    await buildRunAnalysisJob({ analysisRepository, engine: new BlunderingEngine(), defaults: DEFAULTS })({
-      analysisId: created.id,
-    })
+    await buildRunAnalysisJob({ analysisRepository, engine: new BlunderingEngine(), defaults: DEFAULTS })(
+      { analysisId: created.id },
+      attempt(),
+    )
 
     const stored = await analysisRepository.findById(created.id)
     expect(stored?.status).toBe('succeeded')
@@ -121,19 +181,19 @@ describe('runAnalysisJob (integration)', () => {
   })
 
   it('skips work that has already succeeded, so a duplicate delivery is cheap', async () => {
-    const created = await analysisRepository.create({ pgn: buildPgn(['e4', 'e5']), playerColor: 'white' })
+    const created = await create({ pgn: buildPgn(['e4', 'e5']), playerColor: 'white' })
     const engine = new BlunderingEngine()
     const job = buildRunAnalysisJob({ analysisRepository, engine, defaults: DEFAULTS })
 
-    await job({ analysisId: created.id })
+    await job({ analysisId: created.id }, attempt())
     const callsAfterFirstRun = engine.calls
-    await job({ analysisId: created.id })
+    await job({ analysisId: created.id }, attempt())
 
     expect(engine.calls).toBe(callsAfterFirstRun)
   })
 
   it('is a no-op for an analysis that no longer exists', async () => {
     const job = buildRunAnalysisJob({ analysisRepository, engine: new BlunderingEngine(), defaults: DEFAULTS })
-    await expect(job({ analysisId: crypto.randomUUID() })).resolves.toBeUndefined()
+    await expect(job({ analysisId: crypto.randomUUID() }, attempt())).resolves.toBeUndefined()
   })
 })

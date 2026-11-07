@@ -5,6 +5,12 @@ import { initClient } from '@ts-rest/core'
 export interface TacticaAnalysisClientOptions {
   baseUrl: string
   internalApiKey: string
+  /**
+   * Extra headers computed per request — how the caller forwards its correlation id, so the analysis
+   * service's logs join the caller's trace. A callback rather than a dependency on the Node-only
+   * context propagator, keeping this package runtime-agnostic.
+   */
+  requestHeaders?: () => Record<string, string>
 }
 
 /**
@@ -16,21 +22,26 @@ export interface TacticaAnalysisClientOptions {
  */
 export class TacticaAnalysisClient {
   private readonly client: ReturnType<typeof initClient<typeof tacticaAnalysisContract, never>>
+  private readonly requestHeaders: () => Record<string, string>
 
   public constructor(options: TacticaAnalysisClientOptions) {
+    this.requestHeaders = options.requestHeaders ?? (() => ({}))
     this.client = initClient(tacticaAnalysisContract, {
       baseUrl: options.baseUrl,
       baseHeaders: { 'x-internal-api-key': options.internalApiKey },
     })
   }
 
-  /** Queue a game. Returns immediately with a `queued` analysis — poll {@link get} for the result. */
+  /**
+   * Queue a game. Returns immediately with a `queued` analysis — poll {@link get} for the result.
+   * Pass an `idempotencyKey` to make retries safe: resubmitting returns the same analysis.
+   */
   public async create(request: CreateAnalysisRequest): Promise<Analysis> {
-    return extractPostResponse(this.client.create({ body: request }))
+    return extractPostResponse(this.client.create({ body: request, extraHeaders: this.requestHeaders() }))
   }
 
   /** `undefined` when the analysis doesn't exist. */
   public async get(id: string): Promise<Analysis | undefined> {
-    return extractGetByIdResponse(this.client.get({ params: { id } }))
+    return extractGetByIdResponse(this.client.get({ params: { id }, extraHeaders: this.requestHeaders() }))
   }
 }
